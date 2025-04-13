@@ -39,7 +39,7 @@ fi
 WORMROT_MODULO=${WORMROT_MODULO:-60}
 WORMROT_SECRET=${WORMROT_SECRET:-""}
 WORMROT_BIN=${WORMROT_BIN:-"uvx --from magic-wormhole@latest wormhole"}
-WORMROT_HRS_BIN=${WORMROT_HRS_BIN:-"uvx HumanReadableSeed@latest"}
+WORMROT_HRS_BIN=${WORMROT_HRS_BIN:-"uvx --from HumanReadableSeed@latest"}
 WORMROT_DEFAULT_SEND_ARGS=${WORMROT_DEFAULT_SEND_ARGS:-"--no-qr --hide-progress"}
 WORMROT_DEFAULT_RECEIVE_ARGS=${WORMROT_DEFAULT_RECEIVE_ARGS:-"--hide-progress"}
 
@@ -123,7 +123,15 @@ generate_mnemonic() {
     local PERIOD_KEY_HASH=$(echo -n "$PERIOD_KEY" | sha256sum | awk '{print $1}')
 
     # Derive base MNEMONIC words
-    local MNEMONIC_WORDS=$($WORMROT_HRS_BIN toread "$PERIOD_KEY_HASH" | tr ' ' '-')
+    local MNEMONIC_WORDS
+    MNEMONIC_WORDS=$($WORMROT_HRS_BIN toread "$PERIOD_KEY_HASH" 2>/dev/null | tr ' ' '-')
+    
+    # Check if the command failed
+    if [[ $? -ne 0 || -z "$MNEMONIC_WORDS" ]]; then
+        echo "Error: Failed to generate mnemonic words using $WORMROT_HRS_BIN" >&2
+        echo "MNEMONIC_GENERATION_FAILED" >&2
+        return 1
+    fi
 
     # Calculate sha256sum of the mnemonic words
     local MNEMONIC_HASH=$(echo -n "$MNEMONIC_WORDS" | sha256sum | awk '{print $1}')
@@ -142,9 +150,10 @@ generate_mnemonic() {
 MNEMONIC=$(generate_mnemonic "" true)
 MNEMONIC_EXIT_CODE=$?
 
-# Check if generate_mnemonic failed
+# Check if generate_mnemonic failed and exit immediately
 if [[ $MNEMONIC_EXIT_CODE -ne 0 ]]; then
     echo "Error: Mnemonic generation failed with exit code $MNEMONIC_EXIT_CODE" >&2
+    echo "Aborting operation." >&2
     exit 1
 fi
 
@@ -201,6 +210,7 @@ elif [[ $# -gt 0 ]]; then
         
         if [[ $MNEMONIC_EXIT_CODE -ne 0 ]]; then
             echo "Error: Mnemonic generation failed with exit code $MNEMONIC_EXIT_CODE" >&2
+            echo "Aborting operation." >&2
             exit 1
         fi
         
@@ -268,6 +278,7 @@ elif [[ $# -eq 0 ]]; then
         
         if [[ $MNEMONIC_EXIT_CODE -ne 0 ]]; then
             echo "Error: Mnemonic generation failed with exit code $MNEMONIC_EXIT_CODE" >&2
+            echo "Aborting operation." >&2
             exit 1
         fi
         
