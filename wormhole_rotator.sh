@@ -56,9 +56,16 @@ if [[ -z "$WORMHOLE_ROTATOR_SALT" ]]; then
     exit 1
 fi
 
-# Function to execute commands properly
+# Function to execute commands properly and check exit code
 execute_wormhole_command() {
     eval "$@"
+    local exit_code=$?
+    if [[ $exit_code -ne 0 ]]; then
+        echo "Error: Command failed with exit code $exit_code"
+        echo "Failed command: $@"
+        exit $exit_code
+    fi
+    return 0
 }
 
 # Function to generate a mnemonic based on current timestamp and an optional suffix
@@ -138,6 +145,7 @@ elif [[ $# -gt 0 ]]; then
         exit 1
     fi
     
+    # Send file count and check exit code
     execute_wormhole_command "$WORMHOLE_ROTATOR_BIN send --text \"$JSON_CONTENT\" $WORMHOLE_ROTATOR_DEFAULT_SEND_ARGS --code $MNEMONIC"
     
     # Then send each file with a rotated mnemonic
@@ -153,7 +161,14 @@ elif [[ $# -eq 0 ]]; then
     echo "Using base mnemonic: $MNEMONIC"
     # First, receive the count as JSON
     echo "Receiving file count..."
-    local COUNT_FILES_JSON=$(execute_wormhole_command "$WORMHOLE_ROTATOR_BIN receive --only-text $WORMHOLE_ROTATOR_DEFAULT_RECEIVE_ARGS $MNEMONIC")
+    # Use command substitution but preserve the function's ability to check exit codes
+    local COUNT_FILES_JSON
+    COUNT_FILES_JSON=$(eval "$WORMHOLE_ROTATOR_BIN receive --only-text $WORMHOLE_ROTATOR_DEFAULT_RECEIVE_ARGS $MNEMONIC")
+    local exit_code=$?
+    if [[ $exit_code -ne 0 ]]; then
+        echo "Error: Failed to receive file count. Exit code: $exit_code"
+        exit $exit_code
+    fi
     echo "Received JSON content: $COUNT_FILES_JSON"
     
     # Fix potentially malformed JSON by adding quotes around keys if missing
