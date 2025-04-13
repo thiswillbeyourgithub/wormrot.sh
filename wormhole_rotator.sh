@@ -56,8 +56,8 @@ MNEMONIC_HASH=$(echo -n "$MNEMONIC_WORDS" | sha256sum | awk '{print $1}')
 # Extract integers from the hash
 HASH_INTS=$(echo "$MNEMONIC_HASH" | tr -cd '0-9')
 
-# Apply modulo 173 to get prefix
-PREFIX=$((${HASH_INTS:0:5} % 173))
+# Apply modulo to cap prefix
+PREFIX=$((${HASH_INTS:0:5} % 999))
 
 # Create the final mnemonic with the prefix
 MNEMONIC="${PREFIX}-${MNEMONIC_WORDS}"

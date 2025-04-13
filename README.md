@@ -90,7 +90,7 @@ The script generates synchronized codes through a series of steps:
 4. **Channel ID Generation**:
    - Calculates a hash of the mnemonic words
    - Extracts digits from the hash
-   - Computes a prefix number (modulo 173) (what magic-wormhole calls [nameplates or channel id](https://magic-wormhole.readthedocs.io/en/latest/api.html))
+   - Computes a prefix number (modulo 999 to cap it  to 3 digits) (what magic-wormhole calls [nameplates or channel id](https://magic-wormhole.readthedocs.io/en/latest/api.html))
    - Creates the final code format: `prefix-mnemonic`
 
 5. **Command Execution**:
