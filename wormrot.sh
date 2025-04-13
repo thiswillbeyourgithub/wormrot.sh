@@ -97,6 +97,7 @@ execute_wormhole_command() {
 # Function to generate a mnemonic based on current timestamp and an optional suffix
 generate_mnemonic() {
     local suffix="$1"
+    local check_time_boundary=${2:-false}
     
     # Calculate current timestamp in UTC and apply modulo
     local CURRENT_TIMESTAMP=$(date -u +%s)
@@ -105,13 +106,16 @@ generate_mnemonic() {
     # Debug output to stderr so it doesn't affect function output
     echo "Debug - Timestamp modulo-remainder: $MODULO_REMAINDER (threshold: 10)" >&2
 
-    # If modulo-remainder is less than 10, increase modulo by 1
-    local MODULO=$WORMROT_MODULO
-    if [[ $MODULO_REMAINDER -lt 10 ]]; then
-      ADJ_MODULO=$((MODULO + 1))
-    else
-      ADJ_MODULO=$MODULO
+    # If modulo-remainder is less than 10 and we're checking time boundaries, exit with error
+    if [[ $MODULO_REMAINDER -lt 10 && "$check_time_boundary" == true ]]; then
+        local time_to_wait=$((10 - MODULO_REMAINDER))
+        echo "Error: Too close to the next time period boundary." >&2
+        echo "Please wait at least $time_to_wait seconds before starting the transfer." >&2
+        exit 1
     fi
+    
+    # Use unmodified WORMROT_MODULO
+    local ADJ_MODULO=$WORMROT_MODULO
 
     # Create PERIOD_KEY with optional suffix
     local PERIOD_KEY="$(((CURRENT_TIMESTAMP / MODULO) * ADJ_MODULO))${WORMROT_SECRET}${suffix}"
@@ -135,8 +139,8 @@ generate_mnemonic() {
     echo "${PREFIX}-${MNEMONIC_WORDS}"
 }
 
-# Generate the base mnemonic
-MNEMONIC=$(generate_mnemonic "")
+# Generate the base mnemonic with time boundary checking
+MNEMONIC=$(generate_mnemonic "" true)
 
 # Process commands
 if [[ "$1" == "-h" || "$1" == "--help" ]]; then
