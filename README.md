@@ -16,17 +16,17 @@ WormRot solves a common problem: when transferring files with magic-wormhole, yo
 
 With WormRot:
 - Both parties simply run the same command on their respective machines
-- The code is automatically generated based on the current time and a shared salt and modulo
+- The code is automatically generated based on the current time and a shared secret and modulo
 - No communication of codes during the transfer is required
 - The code changes predictably over time, making it virtually impossible for attackers to guess
 - Send multiple files in a single operation with automatic coordination between sender and receiver
 
-It's especially useful for regularly transferring files between your own devices or with trusted parties who have the same salt and modulo configured.
+It's especially useful for regularly transferring files between your own devices or with trusted parties who have the same secret and modulo configured.
 
 ## Installation
 
 1. Ensure you have `uv` installed on your system
-2. Set up the `WORMROT_SALT` environment variable (must be non-empty)
+2. Set up the `WORMROT_SECRET` environment variable (must be non-empty)
 3. Set up the `WORMROT_MODULO` environment variable (changing it increases security, setting it too low can make it hard to synchronize)
 4. Make the script executable
 
@@ -36,10 +36,10 @@ chmod +x wormrot.sh
 
 ## Usage
 
-First, set up the salt environment variable:
+First, set up the secret environment variable:
 
 ```bash
-export WORMROT_SALT="your-secret-salt-here"
+export WORMROT_SECRET="your-secret-here"
 ```
 
 The script automatically detects what you want to do:
@@ -79,7 +79,7 @@ The script automatically detects what you want to do:
 The script can be customized using these environment variables:
 
 - `WORMROT_MODULO`: Time period in seconds (default: 30, minimum: 20). Lowering it makes the code change often but if you take too much time to launch the receive commands they will never find each other.
-- `WORMROT_SALT`: Required secret salt for code generation
+- `WORMROT_SECRET`: Required secret secret for code generation
 - `WORMROT_BIN`: Command to run wormhole (default: "uvx --from magic-wormhole@latest wormhole")
 - `WORMROT_DEFAULT_SEND_ARGS`: Default arguments for send command (default: "--no-qr --hide-progress")
 - `WORMROT_DEFAULT_RECEIVE_ARGS`: Default arguments for receive command (default: "--hide-progress")
@@ -95,7 +95,7 @@ The script generates synchronized codes through a series of steps:
 
 2. **Period Key Generation**:
    - Creates a unique key for the current time period using the formula:
-     `PERIOD_KEY = ((current_timestamp / modulo) * modulo) + salt + optional_suffix`
+     `PERIOD_KEY = ((current_timestamp / modulo) * modulo) + secret + optional_suffix`
    - The suffix is used to generate different codes for multiple files in the same transfer
    - Calculates SHA-256 hash of the period key for enhanced security
 

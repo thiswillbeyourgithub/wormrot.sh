@@ -18,7 +18,7 @@ Without arguments, the script will start in receive mode.
 
 Environment variables:
   WORMROT_MODULO        Time rotation interval in seconds (min: 20, default: 30)
-  WORMROT_SALT          Secret salt for code generation (required)
+  WORMROT_SECRET          Secret secret for code generation (required)
   WORMROT_BIN           Command to run wormhole (default: uvx --from magic-wormhole@latest wormhole)
   WORMROT_DEFAULT_SEND_ARGS      Default arguments for send (default: --no-qr --hide-progress)
   WORMROT_DEFAULT_RECEIVE_ARGS   Default arguments for receive (default: --hide-progress)
@@ -39,7 +39,7 @@ fi
 
 # Environment variables with defaults
 WORMROT_MODULO=${WORMROT_MODULO:-30}
-WORMROT_SALT=${WORMROT_SALT:-""}
+WORMROT_SECRET=${WORMROT_SECRET:-""}
 WORMROT_BIN=${WORMROT_BIN:-"uvx --from magic-wormhole@latest wormhole"}
 WORMROT_DEFAULT_SEND_ARGS=${WORMROT_DEFAULT_SEND_ARGS:-"--no-qr --hide-progress"}
 WORMROT_DEFAULT_RECEIVE_ARGS=${WORMROT_DEFAULT_RECEIVE_ARGS:-"--hide-progress"}
@@ -50,9 +50,9 @@ if [[ $WORMROT_MODULO -lt 20 ]]; then
     exit 1
 fi
 
-# Check if WORMROT_SALT is empty
-if [[ -z "$WORMROT_SALT" ]]; then
-    echo "Error: WORMROT_SALT cannot be empty"
+# Check if WORMROT_SECRET is empty
+if [[ -z "$WORMROT_SECRET" ]]; then
+    echo "Error: WORMROT_SECRET cannot be empty"
     exit 1
 fi
 
@@ -114,7 +114,7 @@ generate_mnemonic() {
     fi
 
     # Create PERIOD_KEY with optional suffix
-    local PERIOD_KEY="$(((CURRENT_TIMESTAMP / MODULO) * ADJ_MODULO))${WORMROT_SALT}${suffix}"
+    local PERIOD_KEY="$(((CURRENT_TIMESTAMP / MODULO) * ADJ_MODULO))${WORMROT_SECRET}${suffix}"
 
     # Calculate SHA-256 hash of the PERIOD_KEY
     local PERIOD_KEY_HASH=$(echo -n "$PERIOD_KEY" | sha256sum | awk '{print $1}')
