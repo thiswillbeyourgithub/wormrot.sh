@@ -100,7 +100,7 @@ The script generates synchronized codes through a series of steps:
    - Calculates SHA-256 hash of the period key for enhanced security
 
 3. **Mnemonic Generation**:
-   - Uses HumanReadableSeed to generate memorable words from the hashed period key
+   - Uses my other project [HumanReadableSeed](https://github.com/thiswillbeyourgithub/HumanReadableSeed) to generate memorable words from the hashed period key
    - Formats the words with hyphens
 
 4. **Channel ID Generation**:
