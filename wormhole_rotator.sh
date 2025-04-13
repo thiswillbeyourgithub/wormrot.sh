@@ -2,6 +2,31 @@
 
 VERSION="1.1.0"
 
+# Function to display help message
+show_help() {
+    cat << EOF
+wormhole_rotator v$VERSION - A wrapper around magic-wormhole for reliable file transfers
+
+Usage: $0 [<file(s)>|send <file(s)>|receive|-v|--version|-h|--help]
+
+Commands:
+  <file(s)>              Send the specified file(s)
+  send <file(s)>         Send the specified file(s)
+  receive                Receive files
+  -v, --version          Show version information
+  -h, --help             Show this help message
+
+Without arguments, the script will start in receive mode.
+
+Environment variables:
+  WORMHOLE_ROTATOR_MODULO        Time rotation interval in seconds (min: 20, default: 30)
+  WORMHOLE_ROTATOR_SALT          Secret salt for code generation (required)
+  WORMHOLE_ROTATOR_BIN           Command to run wormhole (default: uvx --from magic-wormhole@latest wormhole)
+  WORMHOLE_ROTATOR_DEFAULT_SEND_ARGS      Default arguments for send (default: --no-qr --hide-progress)
+  WORMHOLE_ROTATOR_DEFAULT_RECEIVE_ARGS   Default arguments for receive (default: --hide-progress)
+EOF
+}
+
 # Check if uv is installed
 if ! command -v uv &> /dev/null; then
     echo "Error: 'uv' is not installed. Please install it first."
@@ -72,7 +97,10 @@ generate_mnemonic() {
 MNEMONIC=$(generate_mnemonic "")
 
 # Process commands
-if [[ "$1" == "-v" || "$1" == "--version" ]]; then
+if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+    show_help
+    exit 0
+elif [[ "$1" == "-v" || "$1" == "--version" ]]; then
     echo "wormhole_rotator v$VERSION"
     exit 0
 elif [[ "$1" == "send" || ($# -gt 0 && "$1" != "receive") ]]; then
