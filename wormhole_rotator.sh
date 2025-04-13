@@ -1,6 +1,6 @@
 #!/usr/bin/env zsh
 
-VERSION="1.1.0"
+VERSION="1.1.1"
 
 # Function to display help message
 show_help() {
@@ -56,13 +56,39 @@ if [[ -z "$WORMHOLE_ROTATOR_SALT" ]]; then
     exit 1
 fi
 
-# Function to execute commands properly and check exit code
+# Timeout handler function
+timeout_handler() {
+    echo "Error: Operation timed out after $WORMHOLE_ROTATOR_MODULO seconds" >&2
+    echo "Failed command: $CURRENT_COMMAND" >&2
+    kill -TERM $$
+    exit 1
+}
+
+# Function to execute commands properly with timeout and check exit code
 execute_wormhole_command() {
+    local CURRENT_COMMAND="$@"
+    
+    # Set up timeout trap
+    trap timeout_handler ALRM
+    
+    # Start timer in background
+    (
+        sleep $WORMHOLE_ROTATOR_MODULO
+        kill -ALRM $$ 2>/dev/null
+    ) &
+    local TIMER_PID=$!
+    
+    # Execute the command
     eval "$@"
     local exit_code=$?
+    
+    # Kill the timer and reset trap
+    kill $TIMER_PID 2>/dev/null
+    trap - ALRM
+    
     if [[ $exit_code -ne 0 ]]; then
-        echo "Error: Command failed with exit code $exit_code"
-        echo "Failed command: $@"
+        echo "Error: Command failed with exit code $exit_code" >&2
+        echo "Failed command: $@" >&2
         exit $exit_code
     fi
     return 0
@@ -163,9 +189,33 @@ elif [[ $# -eq 0 ]]; then
     echo "Using base mnemonic: $MNEMONIC"
     # First, receive the count as JSON
     echo "Receiving file count..."
-    # Use command substitution but preserve the function's ability to check exit codes
+    # Use the timeout command execution function
     local COUNT_FILES_JSON
-    COUNT_FILES_JSON=$(eval "$WORMHOLE_ROTATOR_BIN receive --only-text $WORMHOLE_ROTATOR_DEFAULT_RECEIVE_ARGS $MNEMONIC")
+    COUNT_FILES_JSON=$(
+      # Set up timeout trap
+      trap timeout_handler ALRM
+      
+      # Start timer in background
+      (
+          sleep $WORMHOLE_ROTATOR_MODULO
+          kill -ALRM $$ 2>/dev/null
+      ) &
+      local TIMER_PID=$!
+      
+      # Execute the command
+      eval "$WORMHOLE_ROTATOR_BIN receive --only-text $WORMHOLE_ROTATOR_DEFAULT_RECEIVE_ARGS $MNEMONIC"
+      local exit_code=$?
+      
+      # Kill the timer and reset trap
+      kill $TIMER_PID 2>/dev/null
+      trap - ALRM
+      
+      if [[ $exit_code -ne 0 ]]; then
+          echo "Error: Failed to receive file count. Exit code: $exit_code" >&2
+          exit $exit_code
+      fi
+    )
+    # Check if the command was successful
     local exit_code=$?
     if [[ $exit_code -ne 0 ]]; then
         echo "Error: Failed to receive file count. Exit code: $exit_code"
