@@ -87,10 +87,10 @@ The script generates synchronized codes through a series of steps:
    - Uses HumanReadableSeed to generate memorable words from the hashed period key
    - Formats the words with hyphens
 
-4. **Code Finalization**:
+4. **Channel ID Generation**:
    - Calculates a hash of the mnemonic words
    - Extracts digits from the hash
-   - Computes a prefix number (modulo 173)
+   - Computes a prefix number (modulo 173) (what magic-wormhole calls [nameplates or channel id](https://magic-wormhole.readthedocs.io/en/latest/api.html))
    - Creates the final code format: `prefix-mnemonic`
 
 5. **Command Execution**:
