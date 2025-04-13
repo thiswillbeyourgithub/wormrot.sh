@@ -5,7 +5,7 @@ VERSION="1.1.1"
 # Function to display help message
 show_help() {
     cat << EOF
-wormhole_rotator v$VERSION - A wrapper around magic-wormhole for reliable file transfers
+wormrot v$VERSION - A wrapper around magic-wormhole for reliable file transfers
 
 Usage: $0 [<file(s)>|-v|--version|-h|--help]
 
@@ -17,11 +17,11 @@ Commands:
 Without arguments, the script will start in receive mode.
 
 Environment variables:
-  WORMHOLE_ROTATOR_MODULO        Time rotation interval in seconds (min: 20, default: 30)
-  WORMHOLE_ROTATOR_SALT          Secret salt for code generation (required)
-  WORMHOLE_ROTATOR_BIN           Command to run wormhole (default: uvx --from magic-wormhole@latest wormhole)
-  WORMHOLE_ROTATOR_DEFAULT_SEND_ARGS      Default arguments for send (default: --no-qr --hide-progress)
-  WORMHOLE_ROTATOR_DEFAULT_RECEIVE_ARGS   Default arguments for receive (default: --hide-progress)
+  WORMROT_MODULO        Time rotation interval in seconds (min: 20, default: 30)
+  WORMROT_SALT          Secret salt for code generation (required)
+  WORMROT_BIN           Command to run wormhole (default: uvx --from magic-wormhole@latest wormhole)
+  WORMROT_DEFAULT_SEND_ARGS      Default arguments for send (default: --no-qr --hide-progress)
+  WORMROT_DEFAULT_RECEIVE_ARGS   Default arguments for receive (default: --hide-progress)
 EOF
 }
 
@@ -38,27 +38,27 @@ if ! command -v jq &> /dev/null; then
 fi
 
 # Environment variables with defaults
-WORMHOLE_ROTATOR_MODULO=${WORMHOLE_ROTATOR_MODULO:-30}
-WORMHOLE_ROTATOR_SALT=${WORMHOLE_ROTATOR_SALT:-""}
-WORMHOLE_ROTATOR_BIN=${WORMHOLE_ROTATOR_BIN:-"uvx --from magic-wormhole@latest wormhole"}
-WORMHOLE_ROTATOR_DEFAULT_SEND_ARGS=${WORMHOLE_ROTATOR_DEFAULT_SEND_ARGS:-"--no-qr --hide-progress"}
-WORMHOLE_ROTATOR_DEFAULT_RECEIVE_ARGS=${WORMHOLE_ROTATOR_DEFAULT_RECEIVE_ARGS:-"--hide-progress"}
+WORMROT_MODULO=${WORMROT_MODULO:-30}
+WORMROT_SALT=${WORMROT_SALT:-""}
+WORMROT_BIN=${WORMROT_BIN:-"uvx --from magic-wormhole@latest wormhole"}
+WORMROT_DEFAULT_SEND_ARGS=${WORMROT_DEFAULT_SEND_ARGS:-"--no-qr --hide-progress"}
+WORMROT_DEFAULT_RECEIVE_ARGS=${WORMROT_DEFAULT_RECEIVE_ARGS:-"--hide-progress"}
 
-# Check if WORMHOLE_ROTATOR_MODULO is below 20
-if [[ $WORMHOLE_ROTATOR_MODULO -lt 20 ]]; then
-    echo "Error: WORMHOLE_ROTATOR_MODULO must be at least 20"
+# Check if WORMROT_MODULO is below 20
+if [[ $WORMROT_MODULO -lt 20 ]]; then
+    echo "Error: WORMROT_MODULO must be at least 20"
     exit 1
 fi
 
-# Check if WORMHOLE_ROTATOR_SALT is empty
-if [[ -z "$WORMHOLE_ROTATOR_SALT" ]]; then
-    echo "Error: WORMHOLE_ROTATOR_SALT cannot be empty"
+# Check if WORMROT_SALT is empty
+if [[ -z "$WORMROT_SALT" ]]; then
+    echo "Error: WORMROT_SALT cannot be empty"
     exit 1
 fi
 
 # Timeout handler function
 timeout_handler() {
-    echo "Error: Operation timed out after $WORMHOLE_ROTATOR_MODULO seconds" >&2
+    echo "Error: Operation timed out after $WORMROT_MODULO seconds" >&2
     echo "Failed command: $CURRENT_COMMAND" >&2
     kill -TERM $$
     exit 1
@@ -73,7 +73,7 @@ execute_wormhole_command() {
     
     # Start timer in background
     (
-        sleep $WORMHOLE_ROTATOR_MODULO
+        sleep $WORMROT_MODULO
         kill -ALRM $$ 2>/dev/null
     ) &
     local TIMER_PID=$!
@@ -100,13 +100,13 @@ generate_mnemonic() {
     
     # Calculate current timestamp in UTC and apply modulo
     local CURRENT_TIMESTAMP=$(date -u +%s)
-    local MODULO_REMAINDER=$((CURRENT_TIMESTAMP % WORMHOLE_ROTATOR_MODULO))
+    local MODULO_REMAINDER=$((CURRENT_TIMESTAMP % WORMROT_MODULO))
     
     # Debug output to stderr so it doesn't affect function output
     echo "Debug - Timestamp modulo-remainder: $MODULO_REMAINDER (threshold: 10)" >&2
 
     # If modulo-remainder is less than 10, increase modulo by 1
-    local MODULO=$WORMHOLE_ROTATOR_MODULO
+    local MODULO=$WORMROT_MODULO
     if [[ $MODULO_REMAINDER -lt 10 ]]; then
       ADJ_MODULO=$((MODULO + 1))
     else
@@ -114,7 +114,7 @@ generate_mnemonic() {
     fi
 
     # Create PERIOD_KEY with optional suffix
-    local PERIOD_KEY="$(((CURRENT_TIMESTAMP / MODULO) * ADJ_MODULO))${WORMHOLE_ROTATOR_SALT}${suffix}"
+    local PERIOD_KEY="$(((CURRENT_TIMESTAMP / MODULO) * ADJ_MODULO))${WORMROT_SALT}${suffix}"
 
     # Calculate SHA-256 hash of the PERIOD_KEY
     local PERIOD_KEY_HASH=$(echo -n "$PERIOD_KEY" | sha256sum | awk '{print $1}')
@@ -143,7 +143,7 @@ if [[ "$1" == "-h" || "$1" == "--help" ]]; then
     show_help
     exit 0
 elif [[ "$1" == "-v" || "$1" == "--version" ]]; then
-    echo "wormhole_rotator v$VERSION"
+    echo "wormrot v$VERSION"
     exit 0
 elif [[ $# -gt 0 ]]; then
     # Count valid files from arguments
@@ -174,7 +174,7 @@ elif [[ $# -gt 0 ]]; then
     fi
     
     # Send file count and check exit code
-    execute_wormhole_command "$WORMHOLE_ROTATOR_BIN send --text \"$JSON_CONTENT\" $WORMHOLE_ROTATOR_DEFAULT_SEND_ARGS --code $MNEMONIC"
+    execute_wormhole_command "$WORMROT_BIN send --text \"$JSON_CONTENT\" $WORMROT_DEFAULT_SEND_ARGS --code $MNEMONIC"
     
     # Then send each file with a rotated mnemonic
     local FILE_INDEX=0
@@ -183,7 +183,7 @@ elif [[ $# -gt 0 ]]; then
         local FILE_MNEMONIC=$(generate_mnemonic "newfile$FILE_INDEX")
         echo "Sending file $FILE_INDEX/$COUNT_FILES: $file"
         echo "Using mnemonic: $FILE_MNEMONIC"
-        execute_wormhole_command "$WORMHOLE_ROTATOR_BIN send \"$file\" $WORMHOLE_ROTATOR_DEFAULT_SEND_ARGS --code $FILE_MNEMONIC"
+        execute_wormhole_command "$WORMROT_BIN send \"$file\" $WORMROT_DEFAULT_SEND_ARGS --code $FILE_MNEMONIC"
     done
 elif [[ $# -eq 0 ]]; then
     echo "Using base mnemonic: $MNEMONIC"
@@ -197,13 +197,13 @@ elif [[ $# -eq 0 ]]; then
       
       # Start timer in background
       (
-          sleep $WORMHOLE_ROTATOR_MODULO
+          sleep $WORMROT_MODULO
           kill -ALRM $$ 2>/dev/null
       ) &
       local TIMER_PID=$!
       
       # Execute the command
-      eval "$WORMHOLE_ROTATOR_BIN receive --only-text $WORMHOLE_ROTATOR_DEFAULT_RECEIVE_ARGS $MNEMONIC"
+      eval "$WORMROT_BIN receive --only-text $WORMROT_DEFAULT_RECEIVE_ARGS $MNEMONIC"
       local exit_code=$?
       
       # Kill the timer and reset trap
@@ -243,7 +243,7 @@ elif [[ $# -eq 0 ]]; then
         local FILE_MNEMONIC=$(generate_mnemonic "newfile$i")
         echo "Receiving file $i/$COUNT_FILES"
         echo "Using mnemonic: $FILE_MNEMONIC"
-        execute_wormhole_command "$WORMHOLE_ROTATOR_BIN receive $WORMHOLE_ROTATOR_DEFAULT_RECEIVE_ARGS $FILE_MNEMONIC"
+        execute_wormhole_command "$WORMROT_BIN receive $WORMROT_DEFAULT_RECEIVE_ARGS $FILE_MNEMONIC"
     done
 else
     echo "Usage: $0 [<file(s)>|-v|--version]"

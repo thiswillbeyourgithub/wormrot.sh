@@ -1,10 +1,10 @@
-# Wormhole Rotator v1.1.0
+# WormRot v1.1.0
 
 A script that generates synchronized, time-based magic-wormhole codes between computers without requiring prior communication.
 
 ## Overview
 
-Wormhole Rotator is a wrapper around [magic-wormhole](https://magic-wormhole.readthedocs.io/) that automatically generates synchronized codes based on time. This eliminates the need to manually share codes between sender and receiver, making file transfers more seamless.
+WormRot (=Wormhole Rotator) is a wrapper around [magic-wormhole](https://magic-wormhole.readthedocs.io/) that automatically generates synchronized codes based on time. This eliminates the need to manually share codes between sender and receiver, making file transfers more seamless.
 
 This tool explicitly supports sending multiple files in a single operation, handling the complexity of coordinating multiple transfers automatically.
 
@@ -12,9 +12,9 @@ This project is in the same vein as my [knockd_rotator](https://github.com/thisw
 
 ## Why Use This?
 
-Wormhole Rotator solves a common problem: when transferring files with magic-wormhole, you normally need to share a code from the sender to the receiver. This can be somewhat annoying.
+WormRot solves a common problem: when transferring files with magic-wormhole, you normally need to share a code from the sender to the receiver. This can be somewhat annoying.
 
-With Wormhole Rotator:
+With WormRot:
 - Both parties simply run the same command on their respective machines
 - The code is automatically generated based on the current time and a shared salt and modulo
 - No communication of codes during the transfer is required
@@ -26,12 +26,12 @@ It's especially useful for regularly transferring files between your own devices
 ## Installation
 
 1. Ensure you have `uv` installed on your system
-2. Set up the `WORMHOLE_ROTATOR_SALT` environment variable (must be non-empty)
-3. Set up the `WORMHOLE_ROTATOR_MODULO` environment variable (changing it increases security, setting it too low can make it hard to synchronize)
+2. Set up the `WORMROT_SALT` environment variable (must be non-empty)
+3. Set up the `WORMROT_MODULO` environment variable (changing it increases security, setting it too low can make it hard to synchronize)
 4. Make the script executable
 
 ```bash
-chmod +x wormhole_rotator.sh
+chmod +x wormrot.sh
 ```
 
 ## Usage
@@ -39,7 +39,7 @@ chmod +x wormhole_rotator.sh
 First, set up the salt environment variable:
 
 ```bash
-export WORMHOLE_ROTATOR_SALT="your-secret-salt-here"
+export WORMROT_SALT="your-secret-salt-here"
 ```
 
 The script automatically detects what you want to do:
@@ -50,39 +50,39 @@ The script automatically detects what you want to do:
 
 ```bash
 # Provide file paths to send files
-./wormhole_rotator.sh /path/to/file1 /path/to/file2
+./wormrot.sh /path/to/file1 /path/to/file2
 ```
 
 ### Receiving files
 
 ```bash
 # Run without arguments to receive files
-./wormhole_rotator.sh
+./wormrot.sh
 ```
 
 ### Help and version information
 
 ```bash
 # Show help
-./wormhole_rotator.sh -h
+./wormrot.sh -h
 # or
-./wormhole_rotator.sh --help
+./wormrot.sh --help
 
 # Show version
-./wormhole_rotator.sh -v
+./wormrot.sh -v
 # or
-./wormhole_rotator.sh --version
+./wormrot.sh --version
 ```
 
 ## Configuration
 
 The script can be customized using these environment variables:
 
-- `WORMHOLE_ROTATOR_MODULO`: Time period in seconds (default: 30, minimum: 20). Lowering it makes the code change often but if you take too much time to launch the receive commands they will never find each other.
-- `WORMHOLE_ROTATOR_SALT`: Required secret salt for code generation
-- `WORMHOLE_ROTATOR_BIN`: Command to run wormhole (default: "uvx --from magic-wormhole@latest wormhole")
-- `WORMHOLE_ROTATOR_DEFAULT_SEND_ARGS`: Default arguments for send command (default: "--no-qr --hide-progress")
-- `WORMHOLE_ROTATOR_DEFAULT_RECEIVE_ARGS`: Default arguments for receive command (default: "--hide-progress")
+- `WORMROT_MODULO`: Time period in seconds (default: 30, minimum: 20). Lowering it makes the code change often but if you take too much time to launch the receive commands they will never find each other.
+- `WORMROT_SALT`: Required secret salt for code generation
+- `WORMROT_BIN`: Command to run wormhole (default: "uvx --from magic-wormhole@latest wormhole")
+- `WORMROT_DEFAULT_SEND_ARGS`: Default arguments for send command (default: "--no-qr --hide-progress")
+- `WORMROT_DEFAULT_RECEIVE_ARGS`: Default arguments for receive command (default: "--hide-progress")
 
 ## How It Works
 
