@@ -35,11 +35,22 @@ if ! command -v jq &> /dev/null; then
     exit 1
 fi
 
+# Check if uvx is installed
+if command -v uvx &> /dev/null; then
+    # uvx is available, use it for default bin values
+    DEFAULT_WORMROT_BIN="uvx --quiet --from magic-wormhole@latest wormhole"
+    DEFAULT_WORMROT_HRS_BIN="uvx --quiet HumanReadableSeed@latest"
+else
+    # uvx is not available, use plain commands
+    DEFAULT_WORMROT_BIN="wormhole"
+    DEFAULT_WORMROT_HRS_BIN="HumanReadableSeed"
+fi
+
 # Environment variables with defaults
 WORMROT_MODULO=${WORMROT_MODULO:-60}
 WORMROT_SECRET=${WORMROT_SECRET:-""}
-WORMROT_BIN=${WORMROT_BIN:-"uvx --quiet --from magic-wormhole@latest wormhole"}
-WORMROT_HRS_BIN=${WORMROT_HRS_BIN:-"uvx --quiet HumanReadableSeed@latest"}
+WORMROT_BIN=${WORMROT_BIN:-"$DEFAULT_WORMROT_BIN"}
+WORMROT_HRS_BIN=${WORMROT_HRS_BIN:-"$DEFAULT_WORMROT_HRS_BIN"}
 WORMROT_DEFAULT_SEND_ARGS=${WORMROT_DEFAULT_SEND_ARGS:-"--no-qr --hide-progress"}
 WORMROT_DEFAULT_RECEIVE_ARGS=${WORMROT_DEFAULT_RECEIVE_ARGS:-"--hide-progress"}
 

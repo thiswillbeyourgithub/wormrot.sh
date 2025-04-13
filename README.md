@@ -33,7 +33,7 @@ It's especially useful for regularly transferring files between your own devices
 chmod +x wormrot.sh
 ```
 
-Note: By default, the script uses `uvx` to call the latest versions of HumanReadableSeed and magic-wormhole. If you don't have `uv` installed, you'll need to specify appropriate binary paths using the `WORMROT_HRS_BIN` and `WORMROT_BIN` environment variables.
+Note: By default, the script checks if `uvx` is installed. If found, it uses `uvx` to call the latest versions of HumanReadableSeed and magic-wormhole. If `uvx` is not installed, it will default to using `wormhole` and `HumanReadableSeed` commands directly.
 
 ## Usage
 
@@ -83,8 +83,8 @@ The script can be customized using these environment variables:
 
 - `WORMROT_MODULO`: Time period in seconds (default: 60, minimum: 20). Lowering it makes the code change often but if you take too much time to launch the receive commands they will never find each other.
 - `WORMROT_SECRET`: Required secret secret for code generation
-- `WORMROT_BIN`: Command to run wormhole (default: "uvx --quiet --from magic-wormhole@latest wormhole")
-- `WORMROT_HRS_BIN`: Command to run HumanReadableSeed (default: "uvx --quiet HumanReadableSeed@latest")
+- `WORMROT_BIN`: Command to run wormhole (default: "uvx --quiet --from magic-wormhole@latest wormhole" if uvx is installed, otherwise "wormhole")
+- `WORMROT_HRS_BIN`: Command to run HumanReadableSeed (default: "uvx --quiet HumanReadableSeed@latest" if uvx is installed, otherwise "HumanReadableSeed")
 - `WORMROT_DEFAULT_SEND_ARGS`: Default arguments for send command (default: "--no-qr --hide-progress")
 - `WORMROT_DEFAULT_RECEIVE_ARGS`: Default arguments for receive command (default: "--hide-progress")
 
