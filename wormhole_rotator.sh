@@ -1,6 +1,6 @@
 #!/usr/bin/env zsh
 
-VERSION="1.0.0"
+VERSION="1.1.0"
 
 # Check if uv is installed
 if ! command -v uv &> /dev/null; then
