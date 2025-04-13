@@ -1,10 +1,10 @@
-# wormrot
+# wormrot.sh
 
 A script that generates synchronized, time-based magic-wormhole codes between computers without requiring prior communication.
 
 ## Overview
 
-`wormrot` (=magic-wormhole rotator) is a wrapper around [magic-wormhole](https://magic-wormhole.readthedocs.io/) that automatically generates synchronized codes based on time. This eliminates the need to manually share codes between sender and receiver, making file transfers more seamless.
+`wormrot.sh` (=magic-wormhole rotator) is a wrapper around [magic-wormhole](https://magic-wormhole.readthedocs.io/) that automatically generates synchronized codes based on time. This eliminates the need to manually share codes between sender and receiver, making file transfers more seamless.
 
 This tool explicitly supports sending multiple files in a single operation, handling the complexity of coordinating multiple transfers automatically.
 
@@ -12,9 +12,9 @@ This project is in the same vein as my [knockd_rotator](https://github.com/thisw
 
 ## Why Use This?
 
-`wormrot` solves a common problem: when transferring files with magic-wormhole, you normally need to share a code from the sender to the receiver. This can be somewhat annoying.
+`wormrot.sh` solves a common problem: when transferring files with magic-wormhole, you normally need to share a code from the sender to the receiver. This can be somewhat annoying.
 
-With `romrot`:
+With `wormrot.sh`:
 - Both parties simply run the same command on their respective machines
 - The code is automatically generated based on the current time and a shared secret and modulo
 - No communication of codes during the transfer is required
