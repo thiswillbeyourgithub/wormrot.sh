@@ -131,6 +131,13 @@ elif [[ $# -gt 0 ]]; then
     local JSON_CONTENT="{\"number_of_files\": $COUNT_FILES}"
     echo "Sending file count: $COUNT_FILES"
     echo "Full JSON content: $JSON_CONTENT"
+    
+    # Check if the JSON content can be parsed by jq
+    if ! echo "$JSON_CONTENT" | jq . &>/dev/null; then
+        echo "Error: Generated JSON is not valid. Please check your inputs."
+        exit 1
+    fi
+    
     execute_wormhole_command "$WORMHOLE_ROTATOR_BIN send --text \"$JSON_CONTENT\" $WORMHOLE_ROTATOR_DEFAULT_SEND_ARGS --code $MNEMONIC"
     
     # Then send each file with a rotated mnemonic
