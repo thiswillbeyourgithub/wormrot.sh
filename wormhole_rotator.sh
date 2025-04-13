@@ -75,10 +75,16 @@ MNEMONIC=$(generate_mnemonic "")
 if [[ "$1" == "-v" || "$1" == "--version" ]]; then
     echo "wormhole_rotator v$VERSION"
     exit 0
-elif [[ "$1" == "send" ]]; then
+elif [[ "$1" == "send" || ($# -gt 0 && "$1" != "receive") ]]; then
     # Count valid files from arguments
     local FILES=()
-    for arg in "${@:2}"; do
+    local start_idx=1
+    # If first arg is "send", start processing from the second argument
+    if [[ "$1" == "send" ]]; then
+        start_idx=2
+    fi
+    
+    for arg in "${@:$start_idx}"; do
         # Skip arguments that start with hyphen (options)
         if [[ "$arg" != -* && -e "$arg" ]]; then
             FILES+=("$arg")
@@ -104,9 +110,9 @@ elif [[ "$1" == "send" ]]; then
         echo "Using mnemonic: $FILE_MNEMONIC"
         execute_wormhole_command "$WORMHOLE_ROTATOR_BIN send \"$file\" $WORMHOLE_ROTATOR_DEFAULT_SEND_ARGS --code $FILE_MNEMONIC"
     done
-elif [[ "$1" == "receive" ]]; then
-    # Check if there are additional arguments
-    if [[ $# -gt 1 ]]; then
+elif [[ "$1" == "receive" || $# -eq 0 ]]; then
+    # Check if there are additional arguments when "receive" is explicitly specified
+    if [[ "$1" == "receive" && $# -gt 1 ]]; then
         echo "Error: 'receive' command doesn't accept additional arguments"
         exit 1
     fi
@@ -131,6 +137,9 @@ elif [[ "$1" == "receive" ]]; then
         execute_wormhole_command "$WORMHOLE_ROTATOR_BIN receive $WORMHOLE_ROTATOR_DEFAULT_RECEIVE_ARGS $FILE_MNEMONIC"
     done
 else
-    echo "Usage: $0 [send <file(s)>|receive|-v|--version]"
+    echo "Usage: $0 [<file(s)>|send <file(s)>|receive|-v|--version]"
+    echo "  - With no arguments: receive files"
+    echo "  - With file arguments: send files"
+    echo "  - Explicit 'send' or 'receive' commands can also be used"
     exit 1
 fi
