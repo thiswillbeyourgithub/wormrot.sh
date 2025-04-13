@@ -74,14 +74,14 @@ generate_mnemonic() {
     
     # Calculate current timestamp in UTC and apply modulo
     local CURRENT_TIMESTAMP=$(date -u +%s)
-    local REMAINDER=$((CURRENT_TIMESTAMP % WORMHOLE_ROTATOR_MODULO))
+    local MODULO_REMAINDER=$((CURRENT_TIMESTAMP % WORMHOLE_ROTATOR_MODULO))
     
     # Debug output to stderr so it doesn't affect function output
-    echo "Debug - Timestamp remainder: $REMAINDER (threshold: 10)" >&2
+    echo "Debug - Timestamp modulo-remainder: $MODULO_REMAINDER (threshold: 10)" >&2
 
-    # If remainder is less than 10, increase modulo by 1
+    # If modulo-remainder is less than 10, increase modulo by 1
     local MODULO=$WORMHOLE_ROTATOR_MODULO
-    if [[ $REMAINDER -lt 10 ]]; then
+    if [[ $MODULO_REMAINDER -lt 10 ]]; then
       ADJ_MODULO=$((MODULO + 1))
     else
       ADJ_MODULO=$MODULO
