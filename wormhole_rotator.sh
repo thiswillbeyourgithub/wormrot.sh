@@ -151,18 +151,14 @@ elif [[ $# -eq 0 ]]; then
     # Fix potentially malformed JSON by adding quotes around keys if missing
     local FIXED_JSON=$(echo "$COUNT_FILES_JSON" | sed 's/{number_of_files:/{"number_of_files":/g')
     
-    # Try to extract the number of files
+    # Extract the number of files using jq
     local COUNT_FILES=$(echo "$FIXED_JSON" | jq -r '.number_of_files' 2>/dev/null)
     
-    # If jq fails, try a fallback method using regex
+    # If jq fails or doesn't return a valid number, exit with error
     if ! [[ "$COUNT_FILES" =~ ^[0-9]+$ ]]; then
-        # Try to extract the number directly with regex
-        if [[ "$COUNT_FILES_JSON" =~ number_of_files[^0-9]*([0-9]+) ]]; then
-            COUNT_FILES="${BASH_REMATCH[1]}"
-        else
-            echo "Error: Could not extract file count from received JSON: $COUNT_FILES_JSON"
-            exit 1
-        fi
+        echo "Error: Could not extract file count from received JSON: $COUNT_FILES_JSON"
+        echo "Make sure the JSON format is correct and contains a 'number_of_files' field."
+        exit 1
     fi
     
     echo "Will receive $COUNT_FILES file(s)"
