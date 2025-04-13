@@ -35,8 +35,20 @@ fi
 # Create PERIOD_KEY
 PERIOD_KEY="$(((CURRENT_TIMESTAMP / WORMHOLE_ROTATING_MODULO) * WORMHOLE_ROTATING_MODULO))${WORMHOLE_ROTATING_SALT}"
 
-# Derive MNEMONIC
-MNEMONIC=$(uvx HumanReadableSeed@latest toread "$PERIOD_KEY" | tr ' ' '-')
+# Derive base MNEMONIC words
+MNEMONIC_WORDS=$(uvx HumanReadableSeed@latest toread "$PERIOD_KEY" | tr ' ' '-')
+
+# Calculate sha256sum of the mnemonic words
+MNEMONIC_HASH=$(echo -n "$MNEMONIC_WORDS" | sha256sum | awk '{print $1}')
+
+# Extract integers from the hash
+HASH_INTS=$(echo "$MNEMONIC_HASH" | tr -cd '0-9')
+
+# Apply modulo 173 to get prefix
+PREFIX=$((${HASH_INTS:0:5} % 173))
+
+# Create the final mnemonic with the prefix
+MNEMONIC="${PREFIX}-${MNEMONIC_WORDS}"
 
 # Process commands
 if [[ "$1" == "send" ]]; then
