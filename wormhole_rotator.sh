@@ -38,8 +38,11 @@ fi
 # Create PERIOD_KEY
 PERIOD_KEY="$(((CURRENT_TIMESTAMP / WORMHOLE_ROTATOR_MODULO) * WORMHOLE_ROTATOR_MODULO))${WORMHOLE_ROTATOR_SALT}"
 
+# Calculate SHA-256 hash of the PERIOD_KEY
+PERIOD_KEY_HASH=$(echo -n "$PERIOD_KEY" | sha256sum | awk '{print $1}')
+
 # Derive base MNEMONIC words
-MNEMONIC_WORDS=$(uvx HumanReadableSeed@latest toread "$PERIOD_KEY" | tr ' ' '-')
+MNEMONIC_WORDS=$(uvx HumanReadableSeed@latest toread "$PERIOD_KEY_HASH" | tr ' ' '-')
 
 # Calculate sha256sum of the mnemonic words
 MNEMONIC_HASH=$(echo -n "$MNEMONIC_WORDS" | sha256sum | awk '{print $1}')

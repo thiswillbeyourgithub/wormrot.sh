@@ -81,9 +81,10 @@ The script generates synchronized codes through a series of steps:
 2. **Period Key Generation**:
    - Creates a unique key for the current time period using the formula:
      `PERIOD_KEY = ((current_timestamp / modulo) * modulo) + salt`
+   - Calculates SHA-256 hash of the period key for enhanced security
 
 3. **Mnemonic Generation**:
-   - Uses HumanReadableSeed to generate memorable words from the period key
+   - Uses HumanReadableSeed to generate memorable words from the hashed period key
    - Formats the words with hyphens
 
 4. **Code Finalization**:
