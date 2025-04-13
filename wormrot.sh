@@ -109,7 +109,8 @@ generate_mnemonic() {
         local time_to_wait=$((10 - MODULO_REMAINDER))
         echo "Error: Too close to the next time period boundary." >&2
         echo "Please wait at least $time_to_wait seconds before starting the transfer." >&2
-        exit 1
+        echo "MNEMONIC_GENERATION_FAILED" >&2
+        return 1
     fi
     
     # Use unmodified WORMROT_MODULO
@@ -139,6 +140,13 @@ generate_mnemonic() {
 
 # Generate the base mnemonic with time boundary checking
 MNEMONIC=$(generate_mnemonic "" true)
+MNEMONIC_EXIT_CODE=$?
+
+# Check if generate_mnemonic failed
+if [[ $MNEMONIC_EXIT_CODE -ne 0 ]]; then
+    echo "Error: Mnemonic generation failed with exit code $MNEMONIC_EXIT_CODE" >&2
+    exit 1
+fi
 
 # Check if we got a valid mnemonic
 if [[ -z "$MNEMONIC" ]]; then
@@ -189,6 +197,13 @@ elif [[ $# -gt 0 ]]; then
     for file in "${FILES[@]}"; do
         FILE_INDEX=$((FILE_INDEX + 1))
         local FILE_MNEMONIC=$(generate_mnemonic "newfile$FILE_INDEX")
+        local MNEMONIC_EXIT_CODE=$?
+        
+        if [[ $MNEMONIC_EXIT_CODE -ne 0 ]]; then
+            echo "Error: Mnemonic generation failed with exit code $MNEMONIC_EXIT_CODE" >&2
+            exit 1
+        fi
+        
         echo "Sending file $FILE_INDEX/$COUNT_FILES: $file"
         echo "Using mnemonic: $FILE_MNEMONIC"
         execute_wormhole_command "$WORMROT_BIN send \"$file\" $WORMROT_DEFAULT_SEND_ARGS --code $FILE_MNEMONIC"
@@ -249,6 +264,13 @@ elif [[ $# -eq 0 ]]; then
     # Then receive each file with a rotated mnemonic
     for ((i=1; i<=COUNT_FILES; i++)); do
         local FILE_MNEMONIC=$(generate_mnemonic "newfile$i")
+        local MNEMONIC_EXIT_CODE=$?
+        
+        if [[ $MNEMONIC_EXIT_CODE -ne 0 ]]; then
+            echo "Error: Mnemonic generation failed with exit code $MNEMONIC_EXIT_CODE" >&2
+            exit 1
+        fi
+        
         echo "Receiving file $i/$COUNT_FILES"
         echo "Using mnemonic: $FILE_MNEMONIC"
         execute_wormhole_command "$WORMROT_BIN receive $WORMROT_DEFAULT_RECEIVE_ARGS $FILE_MNEMONIC"
