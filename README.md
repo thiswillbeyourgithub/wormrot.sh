@@ -1,4 +1,4 @@
-# Wormhole Rotator
+# Wormhole Rotator v1.1.0
 
 A script that generates synchronized, time-based magic-wormhole codes between computers without requiring prior communication.
 
@@ -24,8 +24,8 @@ It's especially useful for regularly transferring files between your own devices
 
 1. Ensure you have `uv` installed on your system
 2. Set up the `WORMHOLE_ROTATOR_SALT` environment variable (must be non-empty)
-2. Set up the `WORMHOLE_ROTATOR_MODULO` environment variable (changing it increases security, setting it too low can make it hard to synchronize)
-3. Make the script executable
+3. Set up the `WORMHOLE_ROTATOR_MODULO` environment variable (changing it increases security, setting it too low can make it hard to synchronize)
+4. Make the script executable
 
 ```bash
 chmod +x wormhole_rotator.sh
@@ -42,18 +42,32 @@ export WORMHOLE_ROTATOR_SALT="your-secret-salt-here"
 ### Sending files
 
 ```bash
-./wormhole_rotator.sh send /path/to/file
+# Using explicit "send" command
+./wormhole_rotator.sh send /path/to/file1 /path/to/file2
+
+# Or simply provide file paths (implicit send)
+./wormhole_rotator.sh /path/to/file1 /path/to/file2
 ```
 
 ### Receiving files
 
 ```bash
+# Using explicit "receive" command
 ./wormhole_rotator.sh receive
+
+# Or simply run without arguments
+./wormhole_rotator.sh
 ```
 
-### Version information
+### Help and version information
 
 ```bash
+# Show help
+./wormhole_rotator.sh -h
+# or
+./wormhole_rotator.sh --help
+
+# Show version
 ./wormhole_rotator.sh -v
 # or
 ./wormhole_rotator.sh --version
@@ -80,7 +94,8 @@ The script generates synchronized codes through a series of steps:
 
 2. **Period Key Generation**:
    - Creates a unique key for the current time period using the formula:
-     `PERIOD_KEY = ((current_timestamp / modulo) * modulo) + salt`
+     `PERIOD_KEY = ((current_timestamp / modulo) * modulo) + salt + optional_suffix`
+   - The suffix is used to generate different codes for multiple files in the same transfer
    - Calculates SHA-256 hash of the period key for enhanced security
 
 3. **Mnemonic Generation**:
@@ -90,11 +105,12 @@ The script generates synchronized codes through a series of steps:
 4. **Channel ID Generation**:
    - Calculates a hash of the mnemonic words
    - Extracts digits from the hash
-   - Computes a prefix number (modulo 999 to cap it  to 3 digits) (what magic-wormhole calls [nameplates or channel id](https://magic-wormhole.readthedocs.io/en/latest/api.html))
+   - Computes a prefix number (modulo 999 to cap it to 3 digits) (what magic-wormhole calls [nameplates or channel id](https://magic-wormhole.readthedocs.io/en/latest/api.html))
    - Creates the final code format: `prefix-mnemonic`
 
-5. **Command Execution**:
-   - Uses the generated code with the magic-wormhole send or receive command
+5. **File Transfer Process**:
+   - For sending: First sends the number of files, then sends each file with a unique suffix-based code
+   - For receiving: First receives the file count, then receives each file using the same suffix pattern
 
 The beauty of this approach is that both sides independently generate the same code without direct communication.
 
