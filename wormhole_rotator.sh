@@ -1,5 +1,7 @@
 #!/usr/bin/env zsh
 
+VERSION="1.0.0"
+
 # Check if uv is installed
 if ! command -v uv &> /dev/null; then
     echo "Error: 'uv' is not installed. Please install it first."
@@ -52,7 +54,10 @@ PREFIX=$((${HASH_INTS:0:5} % 173))
 MNEMONIC="${PREFIX}-${MNEMONIC_WORDS}"
 
 # Process commands
-if [[ "$1" == "send" ]]; then
+if [[ "$1" == "-v" || "$1" == "--version" ]]; then
+    echo "wormhole_rotator v$VERSION"
+    exit 0
+elif [[ "$1" == "send" ]]; then
     execute_wormhole_command "$WORMHOLE_ROTATOR_BIN send ${@:2} $WORMHOLE_ROTATOR_DEFAULT_SEND_ARGS --code $MNEMONIC"
 elif [[ "$1" == "receive" ]]; then
     # Check if there are additional arguments
@@ -62,6 +67,6 @@ elif [[ "$1" == "receive" ]]; then
     fi
     execute_wormhole_command "$WORMHOLE_ROTATOR_BIN receive $WORMHOLE_ROTATOR_DEFAULT_RECEIVE_ARGS $MNEMONIC"
 else
-    echo "Usage: $0 [send <file>|receive]"
+    echo "Usage: $0 [send <file>|receive|-v|--version]"
     exit 1
 fi
