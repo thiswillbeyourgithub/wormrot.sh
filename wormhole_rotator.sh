@@ -70,6 +70,7 @@ generate_mnemonic() {
     local REMAINDER=$((CURRENT_TIMESTAMP % WORMHOLE_ROTATOR_MODULO))
 
     # If remainder is less than 10, increase modulo by 1
+    echo "Remainder: $REMAINDER"
     local MODULO=$WORMHOLE_ROTATOR_MODULO
     if [[ $REMAINDER -lt 10 ]]; then
       ADJ_MODULO=$((MODULO + 1))
