@@ -118,7 +118,7 @@ generate_mnemonic() {
     local ADJ_MODULO=$WORMROT_MODULO
 
     # Create PERIOD_KEY with optional suffix
-    local PERIOD_KEY="$(((CURRENT_TIMESTAMP / MODULO) * ADJ_MODULO))${WORMROT_SECRET}${suffix}"
+    local PERIOD_KEY="$(((CURRENT_TIMESTAMP / ADJ_MODULO) * ADJ_MODULO))${WORMROT_SECRET}${suffix}"
 
     # Calculate SHA-256 hash of the PERIOD_KEY
     local PERIOD_KEY_HASH=$(echo -n "$PERIOD_KEY" | sha256sum | awk '{print $1}')
@@ -141,6 +141,12 @@ generate_mnemonic() {
 
 # Generate the base mnemonic with time boundary checking
 MNEMONIC=$(generate_mnemonic "" true)
+
+# Check if we got a valid mnemonic
+if [[ -z "$MNEMONIC" ]]; then
+    echo "Error: Failed to generate a valid mnemonic" >&2
+    exit 1
+fi
 
 # Process commands
 if [[ "$1" == "-h" || "$1" == "--help" ]]; then
