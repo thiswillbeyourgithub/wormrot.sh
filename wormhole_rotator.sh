@@ -74,6 +74,7 @@ elif [[ "$1" == "receive" ]]; then
         echo "Error: 'receive' command doesn't accept additional arguments"
         exit 1
     fi
+    echo "Using mnemonic: $MNEMONIC"
     execute_wormhole_command "$WORMHOLE_ROTATOR_BIN receive $WORMHOLE_ROTATOR_DEFAULT_RECEIVE_ARGS $MNEMONIC"
 else
     echo "Usage: $0 [send <file>|receive|-v|--version]"
