@@ -147,11 +147,22 @@ elif [[ $# -eq 0 ]]; then
     echo "Receiving file count..."
     local COUNT_FILES_JSON=$(execute_wormhole_command "$WORMHOLE_ROTATOR_BIN receive --only-text $WORMHOLE_ROTATOR_DEFAULT_RECEIVE_ARGS $MNEMONIC")
     echo "Received JSON content: $COUNT_FILES_JSON"
-    local COUNT_FILES=$(echo "$COUNT_FILES_JSON" | jq -r '.number_of_files')
     
+    # Fix potentially malformed JSON by adding quotes around keys if missing
+    local FIXED_JSON=$(echo "$COUNT_FILES_JSON" | sed 's/{number_of_files:/{"number_of_files":/g')
+    
+    # Try to extract the number of files
+    local COUNT_FILES=$(echo "$FIXED_JSON" | jq -r '.number_of_files' 2>/dev/null)
+    
+    # If jq fails, try a fallback method using regex
     if ! [[ "$COUNT_FILES" =~ ^[0-9]+$ ]]; then
-        echo "Error: Expected a number for file count, received JSON: $COUNT_FILES_JSON"
-        exit 1
+        # Try to extract the number directly with regex
+        if [[ "$COUNT_FILES_JSON" =~ number_of_files[^0-9]*([0-9]+) ]]; then
+            COUNT_FILES="${BASH_REMATCH[1]}"
+        else
+            echo "Error: Could not extract file count from received JSON: $COUNT_FILES_JSON"
+            exit 1
+        fi
     fi
     
     echo "Will receive $COUNT_FILES file(s)"
