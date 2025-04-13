@@ -118,7 +118,7 @@ The script generates synchronized codes through a series of steps:
    - For sending: First sends the number of files, then sends each file with a unique suffix-based code
    - For receiving: First receives the file count, then receives each file using the same suffix pattern
 
-The beauty of this approach is that both sides independently generate the same code without direct communication. However, both sender and receiver must start their scripts within the same time window (as defined by WORMROT_MODULO) to ensure they generate the same set of codes.
+The beauty of this approach is that both sides independently generate the same code without direct communication. However, both sender and receiver must start their scripts within the same time window (as defined by WORMROT_MODULO) to ensure they generate the same set of codes. If the script is launched less than 10s before the next window a helpful error occurs, suggesting to wait.
 
 ## Development
 
