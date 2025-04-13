@@ -21,8 +21,8 @@ Without arguments, the script will start in receive mode.
 Environment variables:
   WORMROT_MODULO        Time rotation interval in seconds (min: 20, default: 60)
   WORMROT_SECRET          Secret secret for code generation (required)
-  WORMROT_BIN           Command to run wormhole (default: uvx --from magic-wormhole@latest wormhole)
-  WORMROT_HRS_BIN       Command to run HumanReadableSeed (default: uvx HumanReadableSeed@latest)
+  WORMROT_BIN           Command to run wormhole (default: uvx --quiet --from magic-wormhole@latest wormhole)
+  WORMROT_HRS_BIN       Command to run HumanReadableSeed (default: uvx --quiet HumanReadableSeed@latest)
   WORMROT_DEFAULT_SEND_ARGS      Default arguments for send (default: --no-qr --hide-progress)
   WORMROT_DEFAULT_RECEIVE_ARGS   Default arguments for receive (default: --hide-progress)
 EOF
@@ -38,8 +38,8 @@ fi
 # Environment variables with defaults
 WORMROT_MODULO=${WORMROT_MODULO:-60}
 WORMROT_SECRET=${WORMROT_SECRET:-""}
-WORMROT_BIN=${WORMROT_BIN:-"uvx --from magic-wormhole@latest wormhole"}
-WORMROT_HRS_BIN=${WORMROT_HRS_BIN:-"uvx HumanReadableSeed@latest"}
+WORMROT_BIN=${WORMROT_BIN:-"uvx --quiet --from magic-wormhole@latest wormhole"}
+WORMROT_HRS_BIN=${WORMROT_HRS_BIN:-"uvx --quiet HumanReadableSeed@latest"}
 WORMROT_DEFAULT_SEND_ARGS=${WORMROT_DEFAULT_SEND_ARGS:-"--no-qr --hide-progress"}
 WORMROT_DEFAULT_RECEIVE_ARGS=${WORMROT_DEFAULT_RECEIVE_ARGS:-"--hide-progress"}
 
