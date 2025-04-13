@@ -18,6 +18,11 @@ if [[ -z "$WORMHOLE_ROTATING_SALT" ]]; then
     exit 1
 fi
 
+# Function to execute commands properly
+execute_wormhole_command() {
+    eval "$@"
+}
+
 # Calculate current timestamp and apply modulo
 CURRENT_TIMESTAMP=$(date +%s)
 REMAINDER=$((CURRENT_TIMESTAMP % WORMHOLE_ROTATING_MODULO))
@@ -35,14 +40,14 @@ MNEMONIC=$(uvx HumanReadableSeed@latest toread "$PERIOD_KEY" | tr ' ' '-')
 
 # Process commands
 if [[ "$1" == "send" ]]; then
-    $WORMHOLE_ROTATING_BIN send ${@:2} $WORMHOLE_ROTATING_DEFAULT_ARGS --code $MNEMONIC
+    execute_wormhole_command "$WORMHOLE_ROTATING_BIN send ${@:2} $WORMHOLE_ROTATING_DEFAULT_ARGS --code $MNEMONIC"
 elif [[ "$1" == "receive" ]]; then
     # Check if there are additional arguments
     if [[ $# -gt 1 ]]; then
         echo "Error: 'receive' command doesn't accept additional arguments"
         exit 1
     fi
-    $WORMHOLE_ROTATING_BIN receive $WORMHOLE_ROTATING_DEFAULT_ARGS $MNEMONIC
+    execute_wormhole_command "$WORMHOLE_ROTATING_BIN receive $WORMHOLE_ROTATING_DEFAULT_ARGS $MNEMONIC"
 else
     echo "Usage: $0 [send <file>|receive]"
     exit 1
