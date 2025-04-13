@@ -63,7 +63,7 @@ export WORMHOLE_ROTATOR_SALT="your-secret-salt-here"
 
 The script can be customized using these environment variables:
 
-- `WORMHOLE_ROTATOR_MODULO`: Time period in seconds (default: 30). Lowering it makes the code change often but if you take too much time to launch the receive commands they will never find each other.
+- `WORMHOLE_ROTATOR_MODULO`: Time period in seconds (default: 30, minimum: 20). Lowering it makes the code change often but if you take too much time to launch the receive commands they will never find each other.
 - `WORMHOLE_ROTATOR_SALT`: Required secret salt for code generation
 - `WORMHOLE_ROTATOR_BIN`: Command to run wormhole (default: "uvx --from magic-wormhole@latest wormhole")
 - `WORMHOLE_ROTATOR_DEFAULT_SEND_ARGS`: Default arguments for send command (default: "--no-qr")
