@@ -1,4 +1,4 @@
-# Wormhole Rotator v1.0.0
+# Wormhole Rotator
 
 A script that generates synchronized, time-based magic-wormhole codes between computers without requiring prior communication.
 
