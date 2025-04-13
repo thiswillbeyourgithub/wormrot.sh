@@ -124,7 +124,7 @@ generate_mnemonic() {
 
     # Derive base MNEMONIC words
     local MNEMONIC_WORDS
-    MNEMONIC_WORDS=$($WORMROT_HRS_BIN toread "$PERIOD_KEY_HASH" 2>/dev/null | tr ' ' '-')
+    MNEMONIC_WORDS=$(eval "$WORMROT_HRS_BIN toread $PERIOD_KEY_HASH" | tr ' ' '-')
     
     # Check if the command failed
     if [[ $? -ne 0 || -z "$MNEMONIC_WORDS" ]]; then
