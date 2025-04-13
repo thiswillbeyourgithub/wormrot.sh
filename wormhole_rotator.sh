@@ -127,8 +127,10 @@ elif [[ $# -gt 0 ]]; then
     fi
     
     # First, send the count as JSON using the base mnemonic
+    local JSON_CONTENT="{\"number_of_files\": $COUNT_FILES}"
     echo "Sending file count: $COUNT_FILES"
-    execute_wormhole_command "$WORMHOLE_ROTATOR_BIN send --text \"{\\\"number_of_files\\\": $COUNT_FILES}\" $WORMHOLE_ROTATOR_DEFAULT_SEND_ARGS --code $MNEMONIC"
+    echo "Full JSON content: $JSON_CONTENT"
+    execute_wormhole_command "$WORMHOLE_ROTATOR_BIN send --text \"$JSON_CONTENT\" $WORMHOLE_ROTATOR_DEFAULT_SEND_ARGS --code $MNEMONIC"
     
     # Then send each file with a rotated mnemonic
     local FILE_INDEX=0
@@ -144,6 +146,7 @@ elif [[ $# -eq 0 ]]; then
     # First, receive the count as JSON
     echo "Receiving file count..."
     local COUNT_FILES_JSON=$(execute_wormhole_command "$WORMHOLE_ROTATOR_BIN receive --only-text $WORMHOLE_ROTATOR_DEFAULT_RECEIVE_ARGS $MNEMONIC")
+    echo "Received JSON content: $COUNT_FILES_JSON"
     local COUNT_FILES=$(echo "$COUNT_FILES_JSON" | jq -r '.number_of_files')
     
     if ! [[ "$COUNT_FILES" =~ ^[0-9]+$ ]]; then
