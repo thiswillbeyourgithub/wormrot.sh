@@ -39,7 +39,7 @@ fi
 WORMROT_MODULO=${WORMROT_MODULO:-60}
 WORMROT_SECRET=${WORMROT_SECRET:-""}
 WORMROT_BIN=${WORMROT_BIN:-"uvx --from magic-wormhole@latest wormhole"}
-WORMROT_HRS_BIN=${WORMROT_HRS_BIN:-"uvx --from HumanReadableSeed@latest"}
+WORMROT_HRS_BIN=${WORMROT_HRS_BIN:-"uvx HumanReadableSeed@latest"}
 WORMROT_DEFAULT_SEND_ARGS=${WORMROT_DEFAULT_SEND_ARGS:-"--no-qr --hide-progress"}
 WORMROT_DEFAULT_RECEIVE_ARGS=${WORMROT_DEFAULT_RECEIVE_ARGS:-"--hide-progress"}
 
