@@ -17,7 +17,7 @@ Commands:
 Without arguments, the script will start in receive mode.
 
 Environment variables:
-  WORMROT_MODULO        Time rotation interval in seconds (min: 20, default: 30)
+  WORMROT_MODULO        Time rotation interval in seconds (min: 20, default: 60)
   WORMROT_SECRET          Secret secret for code generation (required)
   WORMROT_BIN           Command to run wormhole (default: uvx --from magic-wormhole@latest wormhole)
   WORMROT_DEFAULT_SEND_ARGS      Default arguments for send (default: --no-qr --hide-progress)
@@ -38,7 +38,7 @@ if ! command -v jq &> /dev/null; then
 fi
 
 # Environment variables with defaults
-WORMROT_MODULO=${WORMROT_MODULO:-30}
+WORMROT_MODULO=${WORMROT_MODULO:-60}
 WORMROT_SECRET=${WORMROT_SECRET:-""}
 WORMROT_BIN=${WORMROT_BIN:-"uvx --from magic-wormhole@latest wormhole"}
 WORMROT_DEFAULT_SEND_ARGS=${WORMROT_DEFAULT_SEND_ARGS:-"--no-qr --hide-progress"}

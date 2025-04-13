@@ -78,7 +78,7 @@ The script automatically detects what you want to do:
 
 The script can be customized using these environment variables:
 
-- `WORMROT_MODULO`: Time period in seconds (default: 30, minimum: 20). Lowering it makes the code change often but if you take too much time to launch the receive commands they will never find each other.
+- `WORMROT_MODULO`: Time period in seconds (default: 60, minimum: 20). Lowering it makes the code change often but if you take too much time to launch the receive commands they will never find each other.
 - `WORMROT_SECRET`: Required secret secret for code generation
 - `WORMROT_BIN`: Command to run wormhole (default: "uvx --from magic-wormhole@latest wormhole")
 - `WORMROT_DEFAULT_SEND_ARGS`: Default arguments for send command (default: "--no-qr --hide-progress")
@@ -90,7 +90,7 @@ The script generates synchronized codes through a series of steps:
 
 1. **Time Synchronization**: 
    - Gets the current UNIX timestamp (using UTC time)
-   - Applies modulo to create time windows (default 30s)
+   - Applies modulo to create time windows (default 60s)
    - Adjusts modulo slightly for timestamps with small remainders
 
 2. **Period Key Generation**:
