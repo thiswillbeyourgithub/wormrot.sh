@@ -31,6 +31,12 @@ if ! command -v uv &> /dev/null; then
     exit 1
 fi
 
+# Check if jq is installed
+if ! command -v jq &> /dev/null; then
+    echo "Error: 'jq' is not installed. Please install it first."
+    exit 1
+fi
+
 # Environment variables with defaults
 WORMHOLE_ROTATOR_MODULO=${WORMHOLE_ROTATOR_MODULO:-30}
 WORMHOLE_ROTATOR_SALT=${WORMHOLE_ROTATOR_SALT:-""}
@@ -66,11 +72,13 @@ generate_mnemonic() {
     # If remainder is less than 10, increase modulo by 1
     local MODULO=$WORMHOLE_ROTATOR_MODULO
     if [[ $REMAINDER -lt 10 ]]; then
-        MODULO=$((MODULO + 1))
+      ADJ_MODULO=$((MODULO + 1))
+    else
+      ADJ_MODULO=$MODULO
     fi
 
     # Create PERIOD_KEY with optional suffix
-    local PERIOD_KEY="$(((CURRENT_TIMESTAMP / MODULO) * MODULO))${WORMHOLE_ROTATOR_SALT}${suffix}"
+    local PERIOD_KEY="$(((CURRENT_TIMESTAMP / MODULO) * ADJ_MODULO))${WORMHOLE_ROTATOR_SALT}${suffix}"
 
     # Calculate SHA-256 hash of the PERIOD_KEY
     local PERIOD_KEY_HASH=$(echo -n "$PERIOD_KEY" | sha256sum | awk '{print $1}')
@@ -118,9 +126,9 @@ elif [[ $# -gt 0 ]]; then
         exit 1
     fi
     
-    # First, send the count using the base mnemonic
+    # First, send the count as JSON using the base mnemonic
     echo "Sending file count: $COUNT_FILES"
-    execute_wormhole_command "$WORMHOLE_ROTATOR_BIN send --text \"$COUNT_FILES\" $WORMHOLE_ROTATOR_DEFAULT_SEND_ARGS --code $MNEMONIC"
+    execute_wormhole_command "$WORMHOLE_ROTATOR_BIN send --text \"{\\\"number_of_files\\\": $COUNT_FILES}\" $WORMHOLE_ROTATOR_DEFAULT_SEND_ARGS --code $MNEMONIC"
     
     # Then send each file with a rotated mnemonic
     local FILE_INDEX=0
@@ -133,12 +141,13 @@ elif [[ $# -gt 0 ]]; then
     done
 elif [[ $# -eq 0 ]]; then
     echo "Using base mnemonic: $MNEMONIC"
-    # First, receive the count
+    # First, receive the count as JSON
     echo "Receiving file count..."
-    local COUNT_FILES=$(execute_wormhole_command "$WORMHOLE_ROTATOR_BIN receive --only-text $WORMHOLE_ROTATOR_DEFAULT_RECEIVE_ARGS $MNEMONIC")
+    local COUNT_FILES_JSON=$(execute_wormhole_command "$WORMHOLE_ROTATOR_BIN receive --only-text $WORMHOLE_ROTATOR_DEFAULT_RECEIVE_ARGS $MNEMONIC")
+    local COUNT_FILES=$(echo "$COUNT_FILES_JSON" | jq -r '.number_of_files')
     
     if ! [[ "$COUNT_FILES" =~ ^[0-9]+$ ]]; then
-        echo "Error: Expected a number for file count, received: $COUNT_FILES"
+        echo "Error: Expected a number for file count, received JSON: $COUNT_FILES_JSON"
         exit 1
     fi
     
