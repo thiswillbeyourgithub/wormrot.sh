@@ -1,6 +1,8 @@
 #!/usr/bin/env zsh
 
-VERSION="1.1.1"
+VERSION="1.1.2"
+# Base timestamp calculated once at script start
+BASE_TIMESTAMP=$(date -u +%s)
 
 # Function to display help message
 show_help() {
@@ -91,14 +93,13 @@ execute_wormhole_command() {
     return 0
 }
 
-# Function to generate a mnemonic based on current timestamp and an optional suffix
+# Function to generate a mnemonic based on base timestamp and an optional suffix
 generate_mnemonic() {
     local suffix="$1"
     local check_time_boundary=${2:-false}
     
-    # Calculate current timestamp in UTC and apply modulo
-    local CURRENT_TIMESTAMP=$(date -u +%s)
-    local MODULO_REMAINDER=$((CURRENT_TIMESTAMP % WORMROT_MODULO))
+    # Use the global BASE_TIMESTAMP instead of recalculating
+    local MODULO_REMAINDER=$((BASE_TIMESTAMP % WORMROT_MODULO))
     
     # Debug output to stderr so it doesn't affect function output
     echo "Debug - Timestamp modulo-remainder: $MODULO_REMAINDER (threshold: 10)" >&2
@@ -114,8 +115,8 @@ generate_mnemonic() {
     # Use unmodified WORMROT_MODULO
     local ADJ_MODULO=$WORMROT_MODULO
 
-    # Create PERIOD_KEY with optional suffix
-    local PERIOD_KEY="$(((CURRENT_TIMESTAMP / ADJ_MODULO) * ADJ_MODULO))${WORMROT_SECRET}${suffix}"
+    # Create PERIOD_KEY with optional suffix - using BASE_TIMESTAMP
+    local PERIOD_KEY="$(((BASE_TIMESTAMP / ADJ_MODULO) * ADJ_MODULO))${WORMROT_SECRET}${suffix}"
 
     # Calculate SHA-256 hash of the PERIOD_KEY
     local PERIOD_KEY_HASH=$(echo -n "$PERIOD_KEY" | sha256sum | awk '{print $1}')

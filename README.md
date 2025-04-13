@@ -43,6 +43,8 @@ First, set up the secret environment variable:
 export WORMROT_SECRET="your-secret-here"
 ```
 
+**Important**: Sender and receiver scripts must be started at roughly the same time (within the same time window as defined by WORMROT_MODULO). Starting the scripts in different time windows will cause the codes to be different and the transfer to fail.
+
 The script automatically detects what you want to do:
 - Run with file paths to send files
 - Run without arguments to receive files
@@ -112,10 +114,11 @@ The script generates synchronized codes through a series of steps:
    - Creates the final code format: `prefix-mnemonic`
 
 5. **File Transfer Process**:
+   - The timestamp is calculated once at script start and used for all mnemonic generation
    - For sending: First sends the number of files, then sends each file with a unique suffix-based code
    - For receiving: First receives the file count, then receives each file using the same suffix pattern
 
-The beauty of this approach is that both sides independently generate the same code without direct communication.
+The beauty of this approach is that both sides independently generate the same code without direct communication. However, both sender and receiver must start their scripts within the same time window (as defined by WORMROT_MODULO) to ensure they generate the same set of codes.
 
 ## Development
 
