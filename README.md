@@ -39,23 +39,21 @@ First, set up the salt environment variable:
 export WORMHOLE_ROTATOR_SALT="your-secret-salt-here"
 ```
 
+The script automatically detects what you want to do:
+- Run with file paths to send files
+- Run without arguments to receive files
+
 ### Sending files
 
 ```bash
-# Using explicit "send" command
-./wormhole_rotator.sh send /path/to/file1 /path/to/file2
-
-# Or simply provide file paths (implicit send)
+# Provide file paths to send files
 ./wormhole_rotator.sh /path/to/file1 /path/to/file2
 ```
 
 ### Receiving files
 
 ```bash
-# Using explicit "receive" command
-./wormhole_rotator.sh receive
-
-# Or simply run without arguments
+# Run without arguments to receive files
 ./wormhole_rotator.sh
 ```
 

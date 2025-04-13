@@ -7,12 +7,10 @@ show_help() {
     cat << EOF
 wormhole_rotator v$VERSION - A wrapper around magic-wormhole for reliable file transfers
 
-Usage: $0 [<file(s)>|send <file(s)>|receive|-v|--version|-h|--help]
+Usage: $0 [<file(s)>|-v|--version|-h|--help]
 
 Commands:
   <file(s)>              Send the specified file(s)
-  send <file(s)>         Send the specified file(s)
-  receive                Receive files
   -v, --version          Show version information
   -h, --help             Show this help message
 
@@ -103,16 +101,11 @@ if [[ "$1" == "-h" || "$1" == "--help" ]]; then
 elif [[ "$1" == "-v" || "$1" == "--version" ]]; then
     echo "wormhole_rotator v$VERSION"
     exit 0
-elif [[ "$1" == "send" || ($# -gt 0 && "$1" != "receive") ]]; then
+elif [[ $# -gt 0 ]]; then
     # Count valid files from arguments
     local FILES=()
-    local start_idx=1
-    # If first arg is "send", start processing from the second argument
-    if [[ "$1" == "send" ]]; then
-        start_idx=2
-    fi
     
-    for arg in "${@:$start_idx}"; do
+    for arg in "$@"; do
         # Skip arguments that start with hyphen (options)
         if [[ "$arg" != -* && -e "$arg" ]]; then
             FILES+=("$arg")
@@ -138,13 +131,7 @@ elif [[ "$1" == "send" || ($# -gt 0 && "$1" != "receive") ]]; then
         echo "Using mnemonic: $FILE_MNEMONIC"
         execute_wormhole_command "$WORMHOLE_ROTATOR_BIN send \"$file\" $WORMHOLE_ROTATOR_DEFAULT_SEND_ARGS --code $FILE_MNEMONIC"
     done
-elif [[ "$1" == "receive" || $# -eq 0 ]]; then
-    # Check if there are additional arguments when "receive" is explicitly specified
-    if [[ "$1" == "receive" && $# -gt 1 ]]; then
-        echo "Error: 'receive' command doesn't accept additional arguments"
-        exit 1
-    fi
-    
+elif [[ $# -eq 0 ]]; then
     echo "Using base mnemonic: $MNEMONIC"
     # First, receive the count
     echo "Receiving file count..."
@@ -165,9 +152,8 @@ elif [[ "$1" == "receive" || $# -eq 0 ]]; then
         execute_wormhole_command "$WORMHOLE_ROTATOR_BIN receive $WORMHOLE_ROTATOR_DEFAULT_RECEIVE_ARGS $FILE_MNEMONIC"
     done
 else
-    echo "Usage: $0 [<file(s)>|send <file(s)>|receive|-v|--version]"
+    echo "Usage: $0 [<file(s)>|-v|--version]"
     echo "  - With no arguments: receive files"
     echo "  - With file arguments: send files"
-    echo "  - Explicit 'send' or 'receive' commands can also be used"
     exit 1
 fi
