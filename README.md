@@ -25,7 +25,7 @@ It's especially useful for regularly transferring files between your own devices
 
 ## Installation
 
-1. Ensure you have `uv` installed on your system
+1. Ensure you have `uv` installed on your system, to use `uvx` for always calling the latest HumanReadableSeed and magic-wormhole.
 2. Set up the `WORMROT_SECRET` environment variable (must be non-empty)
 3. Set up the `WORMROT_MODULO` environment variable (changing it increases security, setting it too low can make it hard to synchronize)
 4. Make the script executable
