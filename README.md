@@ -6,6 +6,8 @@ A script that generates synchronized, time-based magic-wormhole codes between co
 
 Wormhole Rotator is a wrapper around [magic-wormhole](https://magic-wormhole.readthedocs.io/) that automatically generates synchronized codes based on time. This eliminates the need to manually share codes between sender and receiver, making file transfers more seamless.
 
+This tool explicitly supports sending multiple files in a single operation, handling the complexity of coordinating multiple transfers automatically.
+
 This project is in the same vein as my [knockd_rotator](https://github.com/thiswillbeyourgithub/knockd_rotator) and uses my [HumanReadableSeed](https://github.com/thiswillbeyourgithub/HumanReadableSeed) to generate deterministic, human-readable codes.
 
 ## Why Use This?
@@ -17,6 +19,7 @@ With Wormhole Rotator:
 - The code is automatically generated based on the current time and a shared salt and modulo
 - No communication of codes during the transfer is required
 - The code changes predictably over time, making it virtually impossible for attackers to guess
+- Send multiple files in a single operation with automatic coordination between sender and receiver
 
 It's especially useful for regularly transferring files between your own devices or with trusted parties who have the same salt and modulo configured.
 
