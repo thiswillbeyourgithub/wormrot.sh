@@ -26,8 +26,8 @@ execute_wormhole_command() {
     eval "$@"
 }
 
-# Calculate current timestamp and apply modulo
-CURRENT_TIMESTAMP=$(date +%s)
+# Calculate current timestamp in UTC and apply modulo
+CURRENT_TIMESTAMP=$(date -u +%s)
 REMAINDER=$((CURRENT_TIMESTAMP % WORMHOLE_ROTATOR_MODULO))
 
 # If remainder is less than 10, increase modulo by 1

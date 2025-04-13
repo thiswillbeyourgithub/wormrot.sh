@@ -6,24 +6,25 @@ A script that generates synchronized, time-based magic-wormhole codes between co
 
 Wormhole Rotator is a wrapper around [magic-wormhole](https://magic-wormhole.readthedocs.io/) that automatically generates synchronized codes based on time. This eliminates the need to manually share codes between sender and receiver, making file transfers more seamless.
 
-This project is in the same vein as [knockd_rotator](https://github.com/thiswillbeyourgithub/knockd_rotator) and uses [HumanReadableSeed](https://github.com/thiswillbeyourgithub/HumanReadableSeed) to generate deterministic, human-readable codes.
+This project is in the same vein as my [knockd_rotator](https://github.com/thiswillbeyourgithub/knockd_rotator) and uses my [HumanReadableSeed](https://github.com/thiswillbeyourgithub/HumanReadableSeed) to generate deterministic, human-readable codes.
 
 ## Why Use This?
 
-Wormhole Rotator solves a common problem: when transferring files with magic-wormhole, you normally need to share a code from the sender to the receiver. This creates a chicken-and-egg problem - you need a communication channel to share the code, but you might be trying to establish that channel in the first place.
+Wormhole Rotator solves a common problem: when transferring files with magic-wormhole, you normally need to share a code from the sender to the receiver. This can be somewhat annoying.
 
 With Wormhole Rotator:
 - Both parties simply run the same command on their respective machines
-- The code is automatically generated based on the current time and a shared salt
-- No prior communication of codes is required
-- The code changes predictably over time, making it harder for attackers to guess
+- The code is automatically generated based on the current time and a shared salt and modulo
+- No communication of codes during the transfer is required
+- The code changes predictably over time, making it virtually impossible for attackers to guess
 
-It's especially useful for regularly transferring files between your own devices or with trusted parties who have the same salt configured.
+It's especially useful for regularly transferring files between your own devices or with trusted parties who have the same salt and modulo configured.
 
 ## Installation
 
 1. Ensure you have `uv` installed on your system
 2. Set up the `WORMHOLE_ROTATOR_SALT` environment variable (must be non-empty)
+2. Set up the `WORMHOLE_ROTATOR_MODULO` environment variable (changing it increases security, setting it too low can make it hard to synchronize)
 3. Make the script executable
 
 ```bash
@@ -62,7 +63,7 @@ export WORMHOLE_ROTATOR_SALT="your-secret-salt-here"
 
 The script can be customized using these environment variables:
 
-- `WORMHOLE_ROTATOR_MODULO`: Time period in seconds (default: 30)
+- `WORMHOLE_ROTATOR_MODULO`: Time period in seconds (default: 30). Lowering it makes the code change often but if you take too much time to launch the receive commands they will never find each other.
 - `WORMHOLE_ROTATOR_SALT`: Required secret salt for code generation
 - `WORMHOLE_ROTATOR_BIN`: Command to run wormhole (default: "uvx --from magic-wormhole@latest wormhole")
 - `WORMHOLE_ROTATOR_DEFAULT_SEND_ARGS`: Default arguments for send command (default: "--no-qr")
@@ -73,7 +74,7 @@ The script can be customized using these environment variables:
 The script generates synchronized codes through a series of steps:
 
 1. **Time Synchronization**: 
-   - Gets the current UNIX timestamp
+   - Gets the current UNIX timestamp (using UTC time)
    - Applies modulo to create time windows (default 30s)
    - Adjusts modulo slightly for timestamps with small remainders
 
