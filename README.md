@@ -8,7 +8,7 @@ A script that generates synchronized, time-based magic-wormhole codes between co
 
 This tool explicitly supports sending multiple files in a single operation, handling the complexity of coordinating multiple transfers automatically.
 
-This project is in the same vein as my [knockd_rotator](https://github.com/thiswillbeyourgithub/knockd_rotator), [fowlrot](https://github.com/thiswillbeyourgithub/fowlrot) and uses my [HumanReadableSeed](https://github.com/thiswillbeyourgithub/HumanReadableSeed) to generate deterministic, human-readable codes.
+This project is in the same vein as my [knockd_rotator](https://github.com/thiswillbeyourgithub/knockd_rotator), [fowlrot.sh](https://github.com/thiswillbeyourgithub/fowlrot.sh) and uses my [HumanReadableSeed](https://github.com/thiswillbeyourgithub/HumanReadableSeed) to generate deterministic, human-readable codes.
 
 ## Why Use This?
 
