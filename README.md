@@ -25,7 +25,7 @@ It's especially useful for regularly transferring files between your own devices
 
 ## Installation
 
-1. Set up the `WORMROT_SECRET` environment variable (must be non-empty)
+1. Set up the `WORMROT_SECRET` environment variable (must be non-empty). You can generate a strong secret using a command like `openssl rand -hex 64`.
 2. Set up the `WORMROT_MODULO` environment variable (changing it increases security, setting it too low can make it hard to synchronize)
 3. Make the script executable
 
