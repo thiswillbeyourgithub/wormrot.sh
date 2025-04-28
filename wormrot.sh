@@ -204,29 +204,6 @@ elif [[ $# -gt 0 ]]; then
         exit 1
     fi
 
-    # --- Pre-generate all mnemonics ---
-    echo "Pre-generating mnemonics for $COUNT_FILES file(s)..."
-    local -a META_MNEMONICS DATA_MNEMONICS
-    for ((idx=1; idx<=COUNT_FILES; idx++)); do
-        local meta_m=$(generate_mnemonic "meta$idx" false) # Don't check boundary for subsequent mnemonics
-        local meta_exit_code=$?
-        if [[ $meta_exit_code -ne 0 ]]; then
-            echo "Error: Failed to pre-generate metadata mnemonic for item $idx" >&2
-            exit 1
-        fi
-        META_MNEMONICS+=("$meta_m")
-
-        local data_m=$(generate_mnemonic "data$idx" false) # Don't check boundary
-        local data_exit_code=$?
-         if [[ $data_exit_code -ne 0 ]]; then
-            echo "Error: Failed to pre-generate data mnemonic for item $idx" >&2
-            exit 1
-        fi
-        DATA_MNEMONICS+=("$data_m")
-    done
-    echo "Mnemonics pre-generated."
-    # --- End Pre-generation ---
-
     # Send each file/directory with rotated mnemonics for metadata and data
     local FILE_INDEX=0
     for item_path in "${FILES[@]}"; do
@@ -257,13 +234,20 @@ elif [[ $# -gt 0 ]]; then
             exit 1
         fi
 
-        # Retrieve pre-generated mnemonic for metadata
-        local META_MNEMONIC=${META_MNEMONICS[$FILE_INDEX]}
-        if [[ -z "$META_MNEMONIC" ]]; then
-             echo "Error: Could not retrieve pre-generated metadata mnemonic for item $FILE_INDEX" >&2
-             exit 1
+        # --- Metadata Transfer ---
+        # Determine if this is the first mnemonic generation for time boundary check
+        local check_boundary=false
+        if [[ $FILE_INDEX -eq 1 ]]; then
+            check_boundary=true
         fi
-        echo "The next metadata mnemonic will be: $META_MNEMONIC"
+
+        # Generate mnemonic for metadata
+        local META_MNEMONIC=$(generate_mnemonic "meta$FILE_INDEX" $check_boundary)
+        local meta_exit_code=$?
+        if [[ $meta_exit_code -ne 0 || -z "$META_MNEMONIC" ]]; then
+            echo "Error: Failed to generate metadata mnemonic for item $FILE_INDEX" >&2
+            exit 1
+        fi
 
         # Create metadata JSON including index and total count
         # Use the original item basename for the filename field
@@ -278,24 +262,29 @@ elif [[ $# -gt 0 ]]; then
         fi
 
         echo "Sending metadata for item $FILE_INDEX/$COUNT_FILES: $FILE_META_JSON"
-
+        # Print the mnemonic *just before* using it
+        echo "Using metadata mnemonic: $META_MNEMONIC"
         # Send metadata JSON - Use single quotes around the JSON for --text
         execute_wormhole_command "$WORMROT_BIN send --text '$FILE_META_JSON' $WORMROT_DEFAULT_SEND_ARGS --code $META_MNEMONIC"
 
-        # Retrieve pre-generated mnemonic for file data
-        local DATA_MNEMONIC=${DATA_MNEMONICS[$FILE_INDEX]}
-        if [[ -z "$DATA_MNEMONIC" ]]; then
-             echo "Error: Could not retrieve pre-generated data mnemonic for item $FILE_INDEX" >&2
-             exit 1
+        # --- Data Transfer ---
+        # Generate mnemonic for file data (never check boundary here)
+        local DATA_MNEMONIC=$(generate_mnemonic "data$FILE_INDEX" false)
+        local data_exit_code=$?
+        if [[ $data_exit_code -ne 0 || -z "$DATA_MNEMONIC" ]]; then
+            echo "Error: Failed to generate data mnemonic for item $FILE_INDEX" >&2
+            exit 1
         fi
-        echo "The next data mnemonic will be: $DATA_MNEMONIC"
 
         # Send the actual file/archive
         echo "Sending file data $FILE_INDEX/$COUNT_FILES: '$FILE_TO_SEND'"
+        # Print the mnemonic *just before* using it
+        echo "Using data mnemonic: $DATA_MNEMONIC"
         # Send the actual file or directory
         execute_wormhole_command "$WORMROT_BIN send \"$FILE_TO_SEND\" $WORMROT_DEFAULT_SEND_ARGS --code $DATA_MNEMONIC"
 
     done
+    echo "All $COUNT_FILES items sent."
 
 elif [[ $# -eq 0 ]]; then
     # --- RECEIVE MODE ---
@@ -308,16 +297,19 @@ elif [[ $# -eq 0 ]]; then
     while true; do
         local CURRENT_INDEX=$((RECEIVED_COUNT + 1))
 
+        # --- Metadata Reception ---
+        # Determine if this is the first mnemonic generation for time boundary check
+        local check_boundary=false
+        if [[ $CURRENT_INDEX -eq 1 ]]; then
+            check_boundary=true
+        fi
+
         # Generate mnemonic for the current metadata
-        local META_MNEMONIC=$(generate_mnemonic "meta${CURRENT_INDEX}" false)
+        local META_MNEMONIC=$(generate_mnemonic "meta${CURRENT_INDEX}" $check_boundary)
         local meta_exit_code=$?
-        if [[ $meta_exit_code -ne 0 ]]; then
+        if [[ $meta_exit_code -ne 0 || -z "$META_MNEMONIC" ]]; then
             echo "Error: Failed to generate metadata mnemonic for item $CURRENT_INDEX" >&2
             exit 1
-        fi
-        if [[ -z "$META_MNEMONIC" ]]; then
-             echo "Error: Generated empty metadata mnemonic for item $CURRENT_INDEX" >&2
-             exit 1
         fi
 
         # Display expected total if known
@@ -325,9 +317,9 @@ elif [[ $# -eq 0 ]]; then
         if [[ $EXPECTED_TOTAL -ne -1 ]]; then
             progress_indicator=" $CURRENT_INDEX/$EXPECTED_TOTAL"
         fi
-        # Print the expected mnemonic *before* attempting to receive
-        echo "Expecting metadata mnemonic for item $CURRENT_INDEX: $META_MNEMONIC"
         echo "Receiving metadata for item$progress_indicator..."
+        # Print the mnemonic *just before* using it
+        echo "Expecting metadata mnemonic: $META_MNEMONIC"
 
         # Receive metadata JSON
         local FILE_META_JSON_RAW="" # Initialize
@@ -417,21 +409,18 @@ elif [[ $# -eq 0 ]]; then
 
         echo "Metadata parsed - Filename: '$FILENAME_FROM_JSON', Expected Hash: $EXPECTED_HASH, Index: $RECEIVED_INDEX/$EXPECTED_TOTAL"
 
-        # Generate mnemonic for the current file data
+        # --- Data Reception ---
+        # Generate mnemonic for the current file data (never check boundary here)
         local DATA_MNEMONIC=$(generate_mnemonic "data${CURRENT_INDEX}" false)
         local data_exit_code=$?
-        if [[ $data_exit_code -ne 0 ]]; then
+        if [[ $data_exit_code -ne 0 || -z "$DATA_MNEMONIC" ]]; then
             echo "Error: Failed to generate data mnemonic for item $CURRENT_INDEX" >&2
             exit 1
         fi
-         if [[ -z "$DATA_MNEMONIC" ]]; then
-             echo "Error: Generated empty data mnemonic for item $CURRENT_INDEX" >&2
-             exit 1
-        fi
-        # Print the expected mnemonic *before* attempting to receive
-        echo "Expecting data mnemonic for item $CURRENT_INDEX: $DATA_MNEMONIC"
 
         echo "Receiving file data for item $CURRENT_INDEX/$EXPECTED_TOTAL..."
+        # Print the mnemonic *just before* using it
+        echo "Expecting data mnemonic: $DATA_MNEMONIC"
 
         local RECEIVED_FILE_PATH="" # Path to the file/dir after reception
         local CALCULATED_HASH=""    # Hash calculated after reception
