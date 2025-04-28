@@ -327,7 +327,6 @@ elif [[ $# -eq 0 ]]; then
             progress_indicator=" $CURRENT_INDEX/$EXPECTED_TOTAL"
         fi
         echo "Receiving metadata for item$progress_indicator..."
-        echo "Using metadata mnemonic: $META_MNEMONIC"
 
         # Receive metadata JSON
         local FILE_META_JSON_RAW="" # Initialize
@@ -428,9 +427,9 @@ elif [[ $# -eq 0 ]]; then
              echo "Error: Generated empty data mnemonic for item $CURRENT_INDEX" >&2
              exit 1
         fi
+        echo "The next data mnemonic will be: $DATA_MNEMONIC"
 
         echo "Receiving file data for item $CURRENT_INDEX/$EXPECTED_TOTAL..."
-        echo "Using data mnemonic: $DATA_MNEMONIC"
 
         local RECEIVED_FILE_PATH="" # Path to the file/dir after reception
         local CALCULATED_HASH=""    # Hash calculated after reception
