@@ -263,7 +263,7 @@ elif [[ $# -gt 0 ]]; then
 
         echo "Sending metadata for item $FILE_INDEX/$COUNT_FILES: $FILE_META_JSON"
         # Print the mnemonic *just before* using it
-        echo "Using metadata mnemonic: $META_MNEMONIC"
+        echo "Prepare for metadata $FILE_INDEX/$COUNT_FILES. Code: $META_MNEMONIC"
         # Send metadata JSON - Use single quotes around the JSON for --text
         execute_wormhole_command "$WORMROT_BIN send --text '$FILE_META_JSON' $WORMROT_DEFAULT_SEND_ARGS --code $META_MNEMONIC"
 
@@ -279,7 +279,7 @@ elif [[ $# -gt 0 ]]; then
         # Send the actual file/archive
         echo "Sending file data $FILE_INDEX/$COUNT_FILES: '$FILE_TO_SEND'"
         # Print the mnemonic *just before* using it
-        echo "Using data mnemonic: $DATA_MNEMONIC"
+        echo "Prepare for data $FILE_INDEX/$COUNT_FILES. Code: $DATA_MNEMONIC"
         # Send the actual file or directory
         execute_wormhole_command "$WORMROT_BIN send \"$FILE_TO_SEND\" $WORMROT_DEFAULT_SEND_ARGS --code $DATA_MNEMONIC"
 
@@ -319,7 +319,7 @@ elif [[ $# -eq 0 ]]; then
         fi
         echo "Receiving metadata for item$progress_indicator..."
         # Print the mnemonic *just before* using it
-        echo "Expecting metadata mnemonic: $META_MNEMONIC"
+        echo "Prepare for metadata$progress_indicator. Code: $META_MNEMONIC"
 
         # Receive metadata JSON
         local FILE_META_JSON_RAW="" # Initialize
@@ -420,7 +420,7 @@ elif [[ $# -eq 0 ]]; then
 
         echo "Receiving file data for item $CURRENT_INDEX/$EXPECTED_TOTAL..."
         # Print the mnemonic *just before* using it
-        echo "Expecting data mnemonic: $DATA_MNEMONIC"
+        echo "Prepare for data $CURRENT_INDEX/$EXPECTED_TOTAL. Code: $DATA_MNEMONIC"
 
         local RECEIVED_FILE_PATH="" # Path to the file/dir after reception
         local CALCULATED_HASH=""    # Hash calculated after reception
