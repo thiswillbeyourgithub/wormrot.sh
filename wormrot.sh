@@ -35,6 +35,12 @@ if ! command -v jq &> /dev/null; then
     exit 1
 fi
 
+# Check if sha256sum is installed
+if ! command -v sha256sum &> /dev/null; then
+    echo "Error: 'sha256sum' is not installed. Please install it first (usually part of coreutils)."
+    exit 1
+fi
+
 # Check if uvx is installed
 if command -v uvx &> /dev/null; then
     # uvx is available, use it for default bin values
@@ -242,6 +248,16 @@ elif [[ $# -gt 0 ]]; then
             FILE_TO_SEND="$item_path"
         fi
 
+        # Calculate sha256sum of the file/archive to be sent
+        echo "Calculating sha256sum for '$FILE_TO_SEND'..."
+        local FILE_HASH=$(sha256sum "$FILE_TO_SEND" | awk '{print $1}')
+        if [[ $? -ne 0 || -z "$FILE_HASH" ]]; then
+            echo "Error: Failed to calculate sha256sum for '$FILE_TO_SEND'" >&2
+            [[ -n "$TEMP_TAR_FILE" && -f "$TEMP_TAR_FILE" ]] && rm "$TEMP_TAR_FILE" # Cleanup tar if created
+            exit 1
+        fi
+        echo "Calculated hash: $FILE_HASH"
+
         # Generate mnemonic for metadata
         local META_MNEMONIC=$(generate_mnemonic "meta$FILE_INDEX")
         local META_MNEMONIC_EXIT_CODE=$?
@@ -259,7 +275,8 @@ elif [[ $# -gt 0 ]]; then
         else
             FILENAME_IN_JSON=$(basename "$FILE_TO_SEND") # Original file name
         fi
-        local FILE_META_JSON="{\"filename\": \"$FILENAME_IN_JSON\", \"compressed_tar\": $COMPRESSED_TAR}"
+        # Include the calculated hash in the metadata JSON
+        local FILE_META_JSON="{\"filename\": \"$FILENAME_IN_JSON\", \"compressed_tar\": $COMPRESSED_TAR, \"sha256sum\": \"$FILE_HASH\"}"
 
         # Check if the metadata JSON is valid
         if ! echo "$FILE_META_JSON" | jq . &>/dev/null; then
@@ -437,9 +454,11 @@ elif [[ $# -eq 0 ]]; then
         echo "Receiving file data for item $i/$COUNT_FILES..."
         echo "Using data mnemonic: $DATA_MNEMONIC"
 
+        local RECEIVED_FILE_PATH="" # Path to the file after reception (temp or final)
+        local CALCULATED_HASH=""    # Hash calculated after reception
+
         if [[ "$COMPRESSED_TAR" -eq 1 ]]; then
             # Receive compressed tar archive to a temporary file
-            # The archive itself will have a .tar.gz name from the sender, but we receive it to a temp name
             local TEMP_RECEIVED_FILE
             TEMP_RECEIVED_FILE=$(mktemp --suffix=".wormrot-received.tar.gz")
             if [[ -z "$TEMP_RECEIVED_FILE" ]]; then
@@ -448,53 +467,93 @@ elif [[ $# -eq 0 ]]; then
             fi
             echo "Receiving archive to temporary file: '$TEMP_RECEIVED_FILE'"
 
-            # Use execute_wormhole_command for receiving the file data
-            # We don't use --output-file here, wormhole will use the filename from metadata if available,
-            # but we redirect stdout to the temp file to be safe and handle potential name conflicts.
-            # Update: Using --output-file is more robust as wormhole handles overwriting prompts etc.
-            execute_wormhole_command "$WORMROT_BIN receive $WORMROT_DEFAULT_RECEIVE_ARGS --output-file \"$TEMP_RECEIVED_FILE\" $DATA_MNEMONIC"
+            # Use execute_wormhole_command for receiving the file data with --output-file
+            RECEIVED_FILE_PATH="$TEMP_RECEIVED_FILE" # Store the temp path
+            execute_wormhole_command "$WORMROT_BIN receive $WORMROT_DEFAULT_RECEIVE_ARGS --output-file \"$RECEIVED_FILE_PATH\" $DATA_MNEMONIC"
             local receive_archive_exit_code=$?
 
             if [[ $receive_archive_exit_code -ne 0 ]]; then
                 echo "Error: Failed to receive archive data for item $i. Exit code: $receive_archive_exit_code" >&2
-                [[ -f "$TEMP_RECEIVED_FILE" ]] && rm "$TEMP_RECEIVED_FILE" # Clean up temp file on error
+                [[ -f "$RECEIVED_FILE_PATH" ]] && rm "$RECEIVED_FILE_PATH" # Clean up temp file on error
                 exit $receive_archive_exit_code
             fi
 
             # Check if the received file actually exists and is not empty
-            if [[ ! -s "$TEMP_RECEIVED_FILE" ]]; then
-                 echo "Error: Received temporary archive file '$TEMP_RECEIVED_FILE' is missing or empty." >&2
-                 [[ -f "$TEMP_RECEIVED_FILE" ]] && rm "$TEMP_RECEIVED_FILE"
+            if [[ ! -s "$RECEIVED_FILE_PATH" ]]; then
+                 echo "Error: Received temporary archive file '$RECEIVED_FILE_PATH' is missing or empty." >&2
+                 [[ -f "$RECEIVED_FILE_PATH" ]] && rm "$RECEIVED_FILE_PATH"
                  exit 1
             fi
-
-            echo "Archive received. Extracting..."
-            # Extract the archive into the current directory
-            # tar should recreate the directory structure stored within the archive
-            if ! tar xzf "$TEMP_RECEIVED_FILE"; then
-                 echo "Error: Failed to extract received archive: '$TEMP_RECEIVED_FILE'" >&2
-                 # Keep the temp file for debugging in case of extraction error
-                 echo "Temporary archive kept at: $TEMP_RECEIVED_FILE" >&2
-                 exit 1
-            fi
-
-            echo "Extraction complete for '$FILENAME_FROM_JSON'. Cleaning up temporary file."
-            rm "$TEMP_RECEIVED_FILE"
+            echo "Archive received to temporary file: '$RECEIVED_FILE_PATH'"
+            # Verification and extraction will happen after this block
         else
             # Receive regular file using the filename from JSON
             echo "Receiving file directly to: '$FILENAME_FROM_JSON'"
             # Use execute_wormhole_command for receiving the file data with --output-file
-            execute_wormhole_command "$WORMROT_BIN receive $WORMROT_DEFAULT_RECEIVE_ARGS --output-file \"$FILENAME_FROM_JSON\" $DATA_MNEMONIC"
+            RECEIVED_FILE_PATH="$FILENAME_FROM_JSON" # Store the final path
+            execute_wormhole_command "$WORMROT_BIN receive $WORMROT_DEFAULT_RECEIVE_ARGS --output-file \"$RECEIVED_FILE_PATH\" $DATA_MNEMONIC"
             local receive_file_exit_code=$?
 
             if [[ $receive_file_exit_code -ne 0 ]]; then
-                echo "Error: Failed to receive file data for item $i ('$FILENAME_FROM_JSON'). Exit code: $receive_file_exit_code" >&2
-                # Note: wormhole might have created a partial file, manual cleanup might be needed.
+                echo "Error: Failed to receive file data for item $i ('$RECEIVED_FILE_PATH'). Exit code: $receive_file_exit_code" >&2
+                # Note: wormhole might have created a partial file, attempt cleanup
+                [[ -f "$RECEIVED_FILE_PATH" ]] && rm "$RECEIVED_FILE_PATH"
                 exit $receive_file_exit_code
             fi
-            echo "File '$FILENAME_FROM_JSON' received."
+            echo "File '$RECEIVED_FILE_PATH' received."
         fi
-    done
+
+        # --- HASH VERIFICATION ---
+        echo "Verifying sha256sum for received item '$RECEIVED_FILE_PATH'..."
+        # Check if the received file exists before hashing
+        if [[ ! -f "$RECEIVED_FILE_PATH" ]]; then
+            echo "Error: Received file '$RECEIVED_FILE_PATH' not found after transfer." >&2
+            # If it was a tar, the temp file might still exist if extraction failed before this point
+            [[ "$COMPRESSED_TAR" -eq 1 && -f "$TEMP_RECEIVED_FILE" ]] && rm "$TEMP_RECEIVED_FILE"
+            exit 1
+        fi
+
+        CALCULATED_HASH=$(sha256sum "$RECEIVED_FILE_PATH" | awk '{print $1}')
+        if [[ $? -ne 0 || -z "$CALCULATED_HASH" ]]; then
+            echo "Error: Failed to calculate sha256sum for received file '$RECEIVED_FILE_PATH'" >&2
+            # Clean up the potentially corrupted received file
+            rm "$RECEIVED_FILE_PATH"
+            exit 1
+        fi
+
+        echo "Calculated hash: $CALCULATED_HASH"
+        echo "Expected hash:   $EXPECTED_HASH"
+
+        if [[ "$CALCULATED_HASH" != "$EXPECTED_HASH" ]]; then
+            echo "Error: SHA256SUM MISMATCH for item $i ('$FILENAME_FROM_JSON')!" >&2
+            echo "Received file '$RECEIVED_FILE_PATH' might be corrupted." >&2
+            # Clean up the corrupted file
+            echo "Deleting corrupted file: '$RECEIVED_FILE_PATH'" >&2
+            rm "$RECEIVED_FILE_PATH"
+            exit 1
+        else
+            echo "SHA256SUM OK for item $i ('$FILENAME_FROM_JSON')."
+        fi
+
+        # --- POST-VERIFICATION PROCESSING ---
+        if [[ "$COMPRESSED_TAR" -eq 1 ]]; then
+            # Hash matched, now extract the verified archive
+            echo "Hash verified. Extracting archive '$RECEIVED_FILE_PATH'..."
+            # Extract the archive into the current directory
+            if ! tar xzf "$RECEIVED_FILE_PATH"; then
+                 echo "Error: Failed to extract verified archive: '$RECEIVED_FILE_PATH'" >&2
+                 # Keep the verified temp file for debugging in case of extraction error
+                 echo "Verified temporary archive kept at: $RECEIVED_FILE_PATH" >&2
+                 exit 1
+            fi
+            echo "Extraction complete for '$FILENAME_FROM_JSON'. Cleaning up temporary file."
+            rm "$RECEIVED_FILE_PATH" # Remove the temp tar.gz file
+        else
+            # Hash matched for a regular file, nothing more to do here
+            echo "File '$FILENAME_FROM_JSON' received and verified successfully."
+        fi
+
+    done # End of loop for receiving items
 else
     echo "Usage: $0 [<file(s)/dir(s)>|-v|--version|-h|--help]"
     echo "  - With no arguments: receive files/dirs"
