@@ -209,8 +209,8 @@ elif [[ $# -gt 0 ]]; then
         exit 1
     fi
 
-    # Send file count and check exit code
-    execute_wormhole_command "$WORMROT_BIN send --text \"$JSON_COUNT_CONTENT\" $WORMROT_DEFAULT_SEND_ARGS --code $MNEMONIC"
+    # Send file count and check exit code - Use single quotes around the JSON for --text
+    execute_wormhole_command "$WORMROT_BIN send --text '$JSON_COUNT_CONTENT' $WORMROT_DEFAULT_SEND_ARGS --code $MNEMONIC"
 
     # Then send each file/directory with rotated mnemonics for metadata and data
     local FILE_INDEX=0
@@ -271,8 +271,8 @@ elif [[ $# -gt 0 ]]; then
         echo "Sending metadata for item $FILE_INDEX/$COUNT_FILES: $FILE_META_JSON"
         echo "Using metadata mnemonic: $META_MNEMONIC"
 
-        # Send metadata JSON
-        execute_wormhole_command "$WORMROT_BIN send --text \"$FILE_META_JSON\" $WORMROT_DEFAULT_SEND_ARGS --code $META_MNEMONIC"
+        # Send metadata JSON - Use single quotes around the JSON for --text
+        execute_wormhole_command "$WORMROT_BIN send --text '$FILE_META_JSON' $WORMROT_DEFAULT_SEND_ARGS --code $META_MNEMONIC"
 
         # Generate mnemonic for file data
         local DATA_MNEMONIC=$(generate_mnemonic "data$FILE_INDEX")
