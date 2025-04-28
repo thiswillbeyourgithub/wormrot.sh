@@ -72,36 +72,14 @@ if [[ -z "$WORMROT_SECRET" ]]; then
     exit 1
 fi
 
-# Timeout handler function
-timeout_handler() {
-    echo "Error: Operation timed out after $WORMROT_MODULO seconds" >&2
-    echo "Failed command: $CURRENT_COMMAND" >&2
-    kill -TERM $$
-    exit 1
-}
-
-# Function to execute commands properly with timeout and check exit code
+# Function to execute commands properly and check exit code
 execute_wormhole_command() {
     local CURRENT_COMMAND="$@"
-    
-    # Set up timeout trap
-    trap timeout_handler ALRM
-    
-    # Start timer in background
-    (
-        sleep $WORMROT_MODULO
-        kill -ALRM $$ 2>/dev/null
-    ) &
-    local TIMER_PID=$!
-    
+
     # Execute the command
     eval "$@"
     local exit_code=$?
-    
-    # Kill the timer and reset trap
-    kill $TIMER_PID 2>/dev/null
-    trap - ALRM
-    
+
     if [[ $exit_code -ne 0 ]]; then
         echo "Error: Command failed with exit code $exit_code" >&2
         echo "Failed command: $@" >&2
@@ -109,6 +87,7 @@ execute_wormhole_command() {
     fi
     return 0
 }
+
 
 # Function to generate a mnemonic based on base timestamp and an optional suffix
 generate_mnemonic() {
@@ -323,36 +302,19 @@ elif [[ $# -eq 0 ]]; then
 
         # Receive metadata JSON
         local FILE_META_JSON_RAW="" # Initialize
-        local receive_meta_subshell_output
-        receive_meta_subshell_output=$(
-          trap timeout_handler ALRM
-          ( sleep $WORMROT_MODULO; kill -ALRM $$ 2>/dev/null ) & local TIMER_PID=$!
-          # Execute the receive command for metadata
-          eval "$WORMROT_BIN receive --only-text $WORMROT_DEFAULT_RECEIVE_ARGS $META_MNEMONIC"
-          local receive_meta_exit_code=$?
-          # Kill timer and reset trap
-          kill $TIMER_PID 2>/dev/null
-          trap - ALRM
-          # Check exit code for metadata receive
-          if [[ $receive_meta_exit_code -ne 0 ]]; then
-              echo "Error: Failed to receive metadata JSON for item $i. Exit code: $receive_meta_exit_code" >&2
-              exit $receive_meta_exit_code # Exit subshell on error
-          fi
-          # Output is captured if successful
-        )
-        # Capture subshell exit code and output
-        local subshell_meta_exit_code=$?
-        FILE_META_JSON_RAW="$receive_meta_subshell_output"
+        # Execute the receive command for metadata directly
+        FILE_META_JSON_RAW=$(eval "$WORMROT_BIN receive --only-text $WORMROT_DEFAULT_RECEIVE_ARGS $META_MNEMONIC")
+        local receive_meta_exit_code=$?
 
-        # Check if the subshell command itself failed
-        if [[ $subshell_meta_exit_code -ne 0 ]]; then
-            echo "Error during metadata reception for item $i. Subshell exit code: $subshell_meta_exit_code" >&2
-             if [[ -z "$FILE_META_JSON_RAW" ]]; then
-                echo "No JSON data received for metadata item $i." >&2
-            else
-                echo "Received partial/invalid metadata JSON: '$FILE_META_JSON_RAW'" >&2
-            fi
-            exit $subshell_meta_exit_code
+        # Check exit code for metadata receive
+        if [[ $receive_meta_exit_code -ne 0 ]]; then
+            echo "Error: Failed to receive metadata JSON for item $CURRENT_INDEX. Exit code: $receive_meta_exit_code" >&2
+            if [[ -z "$FILE_META_JSON_RAW" ]]; then
+               echo "No JSON data received for metadata item $CURRENT_INDEX." >&2
+           else
+               echo "Received partial/invalid metadata JSON: '$FILE_META_JSON_RAW'" >&2
+           fi
+            exit $receive_meta_exit_code
         fi
 
         echo "Received raw metadata JSON: '$FILE_META_JSON_RAW'"
