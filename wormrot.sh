@@ -227,21 +227,7 @@ elif [[ $# -gt 0 ]]; then
     echo "Mnemonics pre-generated."
     # --- End Pre-generation ---
 
-    # First, send the count as JSON using the base mnemonic
-    local JSON_COUNT_CONTENT="{\"number_of_files\": $COUNT_FILES}"
-    echo "Sending file count: $COUNT_FILES"
-    echo "Full JSON content: $JSON_COUNT_CONTENT"
-
-    # Check if the JSON content can be parsed by jq
-    if ! echo "$JSON_COUNT_CONTENT" | jq . &>/dev/null; then
-        echo "Error: Generated JSON count content is not valid: $JSON_COUNT_CONTENT" >&2
-        exit 1
-    fi
-
-    # Send file count and check exit code - Use single quotes around the JSON for --text
-    execute_wormhole_command "$WORMROT_BIN send --text '$JSON_COUNT_CONTENT' $WORMROT_DEFAULT_SEND_ARGS --code $MNEMONIC"
-
-    # Then send each file/directory with rotated mnemonics for metadata and data
+    # Send each file/directory with rotated mnemonics for metadata and data
     local FILE_INDEX=0
     for item_path in "${FILES[@]}"; do
         FILE_INDEX=$((FILE_INDEX + 1))
@@ -278,11 +264,11 @@ elif [[ $# -gt 0 ]]; then
              exit 1
         fi
 
-        # Create metadata JSON
+        # Create metadata JSON including index and total count
         # Use the original item basename for the filename field
         local FILENAME_IN_JSON=$(basename "$item_path")
-        # Include the calculated hash (or placeholder) in the metadata JSON
-        local FILE_META_JSON="{\"filename\": \"$FILENAME_IN_JSON\", \"sha256sum\": \"$FILE_HASH\"}"
+        # Include the calculated hash (or placeholder), index, and total in the metadata JSON
+        local FILE_META_JSON="{\"filename\": \"$FILENAME_IN_JSON\", \"sha256sum\": \"$FILE_HASH\", \"index\": $FILE_INDEX, \"total\": $COUNT_FILES}"
 
         # Check if the metadata JSON is valid
         if ! echo "$FILE_META_JSON" | jq . &>/dev/null; then
@@ -313,104 +299,33 @@ elif [[ $# -gt 0 ]]; then
 
 elif [[ $# -eq 0 ]]; then
     # --- RECEIVE MODE ---
-    echo "Using base mnemonic: $MNEMONIC"
-    # First, receive the count as JSON
-    echo "Receiving file count..."
-    # Use the timeout command execution function to receive the file count JSON
-    local COUNT_FILES_JSON_RAW="" # Initialize to empty string
-    local receive_count_subshell_output
-    receive_count_subshell_output=$(
-      # Set up timeout trap for receiving count
-      trap timeout_handler ALRM
-      
-      # Start timer in background for receiving count
-      (
-          sleep $WORMROT_MODULO
-          kill -ALRM $$ 2>/dev/null
-      ) &
-      local COUNT_TIMER_PID=$!
+    # We don't know the number of files initially. We'll get it from the first metadata message.
+    local RECEIVED_COUNT=0
+    local EXPECTED_TOTAL=-1 # Initialize to unknown
 
-      # Execute the receive command for count
-      eval "$WORMROT_BIN receive --only-text $WORMROT_DEFAULT_RECEIVE_ARGS $MNEMONIC"
-      local receive_count_exit_code=$?
+    echo "Starting receive mode. Waiting for first metadata..."
 
-      # Kill the timer and reset trap for count
-      kill $COUNT_TIMER_PID 2>/dev/null
-      trap - ALRM
+    while true; do
+        local CURRENT_INDEX=$((RECEIVED_COUNT + 1))
 
-      # Check exit code for count receive
-      if [[ $receive_count_exit_code -ne 0 ]]; then
-          echo "Error: Failed to receive file count JSON. Exit code: $receive_count_exit_code" >&2
-          # Exit the subshell with the error code
-          exit $receive_count_exit_code
-      fi
-      # If successful, the output of eval will be captured
-    )
-    # Capture the exit code of the subshell
-    local subshell_exit_code=$?
-    # Assign the captured output to the variable
-    COUNT_FILES_JSON_RAW="$receive_count_subshell_output"
-
-    # Check if the subshell command itself failed (e.g., trap triggered or eval failed)
-    if [[ $subshell_exit_code -ne 0 ]]; then
-        echo "Error during file count reception. Subshell exit code: $subshell_exit_code" >&2
-        # If the output variable is empty, it means the command likely failed before producing output
-        if [[ -z "$COUNT_FILES_JSON_RAW" ]]; then
-            echo "No JSON data received for file count." >&2
-        else
-            echo "Received partial/invalid count JSON: '$COUNT_FILES_JSON_RAW'" >&2
-        fi
-        exit $subshell_exit_code
-    fi
-
-    echo "Received raw count JSON: '$COUNT_FILES_JSON_RAW'"
-
-    # Extract the number of files using jq
-    local COUNT_FILES=$(echo "$COUNT_FILES_JSON_RAW" | jq -r '.number_of_files' 2>/dev/null)
-    
-    # If jq fails or doesn't return a valid number, exit with error
-    if ! [[ "$COUNT_FILES" =~ ^[1-9][0-9]*$ || "$COUNT_FILES" == "0" ]]; then # Allow 0 files
-        echo "Error: Could not extract a valid file count from received JSON: '$COUNT_FILES_JSON_RAW'" >&2
-        echo "Make sure the JSON format is correct (e.g., {\"number_of_files\": 1}) and contains a non-negative integer 'number_of_files' field." >&2
-        exit 1
-    fi
-
-    echo "Expecting $COUNT_FILES file(s)/archive(s)"
-
-    # --- Pre-generate all mnemonics ---
-    echo "Pre-generating mnemonics for $COUNT_FILES file(s)..."
-    local -a META_MNEMONICS DATA_MNEMONICS
-    for ((idx=1; idx<=COUNT_FILES; idx++)); do
-        local meta_m=$(generate_mnemonic "meta$idx" false) # Don't check boundary
+        # Generate mnemonic for the current metadata
+        local META_MNEMONIC=$(generate_mnemonic "meta${CURRENT_INDEX}" false)
         local meta_exit_code=$?
         if [[ $meta_exit_code -ne 0 ]]; then
-            echo "Error: Failed to pre-generate metadata mnemonic for item $idx" >&2
+            echo "Error: Failed to generate metadata mnemonic for item $CURRENT_INDEX" >&2
             exit 1
         fi
-        META_MNEMONICS+=("$meta_m")
-
-        local data_m=$(generate_mnemonic "data$idx" false) # Don't check boundary
-        local data_exit_code=$?
-         if [[ $data_exit_code -ne 0 ]]; then
-            echo "Error: Failed to pre-generate data mnemonic for item $idx" >&2
-            exit 1
-        fi
-        DATA_MNEMONICS+=("$data_m")
-    done
-    echo "Mnemonics pre-generated."
-    # --- End Pre-generation ---
-
-
-    # Then receive metadata and file/archive for each item
-    for ((i=1; i<=COUNT_FILES; i++)); do
-        # Retrieve pre-generated mnemonic for metadata
-        local META_MNEMONIC=${META_MNEMONICS[$i]}
-         if [[ -z "$META_MNEMONIC" ]]; then
-             echo "Error: Could not retrieve pre-generated metadata mnemonic for item $i" >&2
+        if [[ -z "$META_MNEMONIC" ]]; then
+             echo "Error: Generated empty metadata mnemonic for item $CURRENT_INDEX" >&2
              exit 1
         fi
 
-        echo "Receiving metadata for item $i/$COUNT_FILES..."
+        # Display expected total if known
+        local progress_indicator=""
+        if [[ $EXPECTED_TOTAL -ne -1 ]]; then
+            progress_indicator=" $CURRENT_INDEX/$EXPECTED_TOTAL"
+        fi
+        echo "Receiving metadata for item$progress_indicator..."
         echo "Using metadata mnemonic: $META_MNEMONIC"
 
         # Receive metadata JSON
@@ -449,9 +364,11 @@ elif [[ $# -eq 0 ]]; then
 
         echo "Received raw metadata JSON: '$FILE_META_JSON_RAW'"
 
-        # Parse filename and sha256sum using jq
+        # Parse filename, sha256sum, index, and total using jq
         local FILENAME_FROM_JSON=$(echo "$FILE_META_JSON_RAW" | jq -r '.filename' 2>/dev/null)
         local EXPECTED_HASH=$(echo "$FILE_META_JSON_RAW" | jq -r '.sha256sum' 2>/dev/null)
+        local RECEIVED_INDEX=$(echo "$FILE_META_JSON_RAW" | jq -r '.index' 2>/dev/null)
+        local RECEIVED_TOTAL=$(echo "$FILE_META_JSON_RAW" | jq -r '.total' 2>/dev/null)
 
         # Validate parsed metadata
         if [[ -z "$FILENAME_FROM_JSON" || "$FILENAME_FROM_JSON" == "null" ]]; then
@@ -464,17 +381,54 @@ elif [[ $# -eq 0 ]]; then
             echo "Error: Could not extract valid sha256sum (or directory placeholder) from metadata JSON: '$FILE_META_JSON_RAW'" >&2
             exit 1
         fi
+        # Validate index and total are positive integers
+        if ! [[ "$RECEIVED_INDEX" =~ ^[1-9][0-9]*$ ]]; then
+            echo "Error: Could not extract a valid positive index from metadata JSON: '$FILE_META_JSON_RAW'" >&2
+            exit 1
+        fi
+         if ! [[ "$RECEIVED_TOTAL" =~ ^[1-9][0-9]*$ ]]; then
+            echo "Error: Could not extract a valid positive total count from metadata JSON: '$FILE_META_JSON_RAW'" >&2
+            exit 1
+        fi
 
-        echo "Metadata parsed - Filename: '$FILENAME_FROM_JSON', Expected Hash: $EXPECTED_HASH"
+        # Process index and total
+        if [[ $EXPECTED_TOTAL -eq -1 ]]; then
+            # First metadata received, store the total and validate index
+            if [[ $RECEIVED_INDEX -ne 1 ]]; then
+                echo "Error: Expected index 1 for the first item, but received $RECEIVED_INDEX." >&2
+                exit 1
+            fi
+            EXPECTED_TOTAL=$RECEIVED_TOTAL
+            echo "Expecting $EXPECTED_TOTAL total item(s) based on first metadata."
+            # Now that we know the total, pre-generate remaining mnemonics if needed (optional optimization)
+            # For simplicity, we'll generate them one by one in the loop.
+        else
+            # Subsequent metadata, validate index and total consistency
+            if [[ $RECEIVED_INDEX -ne $CURRENT_INDEX ]]; then
+                 echo "Error: Expected index $CURRENT_INDEX, but received $RECEIVED_INDEX." >&2
+                 exit 1
+            fi
+            if [[ $RECEIVED_TOTAL -ne $EXPECTED_TOTAL ]]; then
+                 echo "Error: Expected total $EXPECTED_TOTAL, but received $RECEIVED_TOTAL in metadata for item $CURRENT_INDEX." >&2
+                 exit 1
+            fi
+        fi
 
-        # Retrieve pre-generated mnemonic for file data
-        local DATA_MNEMONIC=${DATA_MNEMONICS[$i]}
-        if [[ -z "$DATA_MNEMONIC" ]]; then
-             echo "Error: Could not retrieve pre-generated data mnemonic for item $i" >&2
+        echo "Metadata parsed - Filename: '$FILENAME_FROM_JSON', Expected Hash: $EXPECTED_HASH, Index: $RECEIVED_INDEX/$EXPECTED_TOTAL"
+
+        # Generate mnemonic for the current file data
+        local DATA_MNEMONIC=$(generate_mnemonic "data${CURRENT_INDEX}" false)
+        local data_exit_code=$?
+        if [[ $data_exit_code -ne 0 ]]; then
+            echo "Error: Failed to generate data mnemonic for item $CURRENT_INDEX" >&2
+            exit 1
+        fi
+         if [[ -z "$DATA_MNEMONIC" ]]; then
+             echo "Error: Generated empty data mnemonic for item $CURRENT_INDEX" >&2
              exit 1
         fi
 
-        echo "Receiving file data for item $i/$COUNT_FILES..."
+        echo "Receiving file data for item $CURRENT_INDEX/$EXPECTED_TOTAL..."
         echo "Using data mnemonic: $DATA_MNEMONIC"
 
         local RECEIVED_FILE_PATH="" # Path to the file/dir after reception
@@ -563,17 +517,17 @@ elif [[ $# -eq 0 ]]; then
             echo "Expected hash:   $EXPECTED_HASH"
 
             if [[ "$CALCULATED_HASH" != "$EXPECTED_HASH" ]]; then
-                echo "Error: SHA256SUM MISMATCH for item $i ('$FILENAME_FROM_JSON')!" >&2
+                echo "Error: SHA256SUM MISMATCH for item $CURRENT_INDEX ('$FILENAME_FROM_JSON')!" >&2
                 echo "Received file '$RECEIVED_FILE_PATH' might be corrupted." >&2
                 # Clean up the corrupted file
                 echo "Deleting corrupted file: '$RECEIVED_FILE_PATH'" >&2
                 rm "$RECEIVED_FILE_PATH"
                 exit 1
             else
-                echo "SHA256SUM OK for item $i ('$FILENAME_FROM_JSON')."
+                echo "SHA256SUM OK for item $CURRENT_INDEX ('$FILENAME_FROM_JSON')."
             fi
         else
-             echo "Skipping hash verification for received directory '$FILENAME_FROM_JSON'."
+             echo "Skipping hash verification for received directory '$FILENAME_FROM_JSON' (item $CURRENT_INDEX)."
              # Basic check: ensure the directory exists
              if [[ ! -d "$RECEIVED_FILE_PATH" ]]; then
                  echo "Error: Received directory '$RECEIVED_FILE_PATH' not found after transfer." >&2
@@ -603,64 +557,26 @@ elif [[ $# -eq 0 ]]; then
              fi
         fi
 
-        echo "Item '$RECEIVED_FILE_PATH' processed successfully."
+        echo "Item '$RECEIVED_FILE_PATH' (item $CURRENT_INDEX/$EXPECTED_TOTAL) processed successfully."
 
+        # Increment received count
+        RECEIVED_COUNT=$((RECEIVED_COUNT + 1))
 
-    done # End of loop for receiving items
+        # Check if all expected files have been received
+        if [[ $RECEIVED_COUNT -eq $EXPECTED_TOTAL ]]; then
+            echo "All $EXPECTED_TOTAL items received successfully."
+            break # Exit the while loop
+        fi
+
+    done # End of while true loop for receiving items
 else
-    echo "Usage: $0 [<file(s)/dir(s)>|-v|--version|-h|--help]"
-            exit 1
-        fi
-
-        CALCULATED_HASH=$(sha256sum "$RECEIVED_FILE_PATH" | awk '{print $1}')
-        if [[ $? -ne 0 || -z "$CALCULATED_HASH" ]]; then
-            echo "Error: Failed to calculate sha256sum for received file '$RECEIVED_FILE_PATH'" >&2
-            # Clean up the potentially corrupted received file
-            rm "$RECEIVED_FILE_PATH"
-            exit 1
-        fi
-
-        echo "Calculated hash: $CALCULATED_HASH"
-        echo "Expected hash:   $EXPECTED_HASH"
-
-        if [[ "$CALCULATED_HASH" != "$EXPECTED_HASH" ]]; then
-            echo "Error: SHA256SUM MISMATCH for item $i ('$FILENAME_FROM_JSON')!" >&2
-            echo "Received file '$RECEIVED_FILE_PATH' might be corrupted." >&2
-            # Clean up the corrupted file
-            echo "Deleting corrupted file: '$RECEIVED_FILE_PATH'" >&2
-            rm "$RECEIVED_FILE_PATH"
-            exit 1
-        else
-            echo "SHA256SUM OK for item $i ('$FILENAME_FROM_JSON')."
-        fi
-
-        # --- POST-VERIFICATION PROCESSING ---
-        # No extraction needed anymore
-        # If hash was verified (or skipped for dir), the item is considered successfully received.
-        # The renaming logic previously applied to files now needs reconsideration.
-        # If wormhole handled renaming, our RECEIVED_FILE_PATH might be wrong.
-        # If wormhole overwrote, the file is correct.
-        # If we wanted to rename based on our check, we'd do it here *after* verification.
-
-        # Let's assume wormhole saved it as FILENAME_FROM_JSON and verification passed on that path.
-        # If TARGET_NAME was different due to collision check, rename now.
-        if [[ -e "$RECEIVED_FILE_PATH" && "$TARGET_NAME" != "$RECEIVED_FILE_PATH" ]]; then
-             echo "Renaming verified item '$RECEIVED_FILE_PATH' to '$TARGET_NAME' due to pre-existing item."
-             if ! mv -v "$RECEIVED_FILE_PATH" "$TARGET_NAME"; then
-                 echo "Error: Failed to rename '$RECEIVED_FILE_PATH' to '$TARGET_NAME'." >&2
-                 # Don't exit, but warn the user. The file is verified but has the original name.
-             else
-                 RECEIVED_FILE_PATH="$TARGET_NAME" # Update path variable
-             fi
-        fi
-
-        echo "Item '$RECEIVED_FILE_PATH' processed successfully."
-
-
-    done # End of loop for receiving items
-else
+    # Handle case where arguments are provided but are not files (e.g., only options)
+    # This part is reached if $# > 0 but the file check loop didn't find any valid files.
+    # The original script structure handles -h and -v before the file check.
+    # If we reach here, it means invalid arguments were likely given after the options.
     echo "Usage: $0 [<file(s)/dir(s)>|-v|--version|-h|--help]"
     echo "  - With no arguments: receive files/dirs"
     echo "  - With file/dir arguments: send files/dirs"
+    echo "Error: Invalid arguments or no valid files specified for sending." >&2
     exit 1
 fi
