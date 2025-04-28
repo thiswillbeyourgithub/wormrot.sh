@@ -497,7 +497,7 @@ elif [[ $# -eq 0 ]]; then
     done
 else
     echo "Usage: $0 [<file(s)/dir(s)>|-v|--version|-h|--help]"
-    echo "  - With no arguments: receive files"
-    echo "  - With file arguments: send files"
+    echo "  - With no arguments: receive files/dirs"
+    echo "  - With file/dir arguments: send files/dirs"
     exit 1
 fi
