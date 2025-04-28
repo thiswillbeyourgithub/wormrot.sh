@@ -34,7 +34,7 @@ It's especially useful for regularly transferring files between your own devices
 chmod +x wormrot.sh
 ```
 
-Note: By default, the script checks if `uvx` is installed. If found, it uses `uvx` to call the latest versions of HumanReadableSeed and magic-wormhole. If `uvx` is not installed, it will default to using `wormhole` and `HumanReadableSeed` commands directly, which you can install using `pip install -U magic-wormhole HumanReadableSeed`. On [termux](https://termux.dev/) you might need instead to do `pkg install magic-wormhole-rs coreutils jq`; the Rust implementation supports the text sending features required by `wormrot.sh`, and `coreutils` provides `sha256sum`.
+Note: By default, the script checks if `uvx` is installed. If found, it uses `uvx` to call the latest versions of HumanReadableSeed and magic-wormhole. If `uvx` is not installed, it will default to using `wormhole` and `HumanReadableSeed` commands directly, which you can install using `pip install -U magic-wormhole HumanReadableSeed`. On [termux](https://termux.dev/) you might need instead to do `pkg install magic-wormhole-rs coreutils jq`; BUT the Rust implementation does not yet support the text sending features required by `wormrot.sh`.
 
 ## Usage
 
