@@ -482,10 +482,20 @@ elif [[ $# -eq 0 ]]; then
         # We need to capture the output to know the final path if wormhole renames it.
         # This is tricky as wormhole's output might vary. Let's assume it saves as FILENAME_FROM_JSON for now.
         # If it exists, our check above warns, but wormhole might still overwrite or fail depending on args.
-        # Let's proceed assuming it saves as FILENAME_FROM_JSON for hash check.
-        RECEIVED_FILE_PATH="$FILENAME_FROM_JSON" # Assume this path for verification
+        # Let's proceed assuming it saves as FILENAME_FROM_JSON for hash check, unless renamed.
+        RECEIVED_FILE_PATH="$TARGET_NAME" # Use the potentially modified target name
 
-        execute_wormhole_command "$WORMROT_BIN receive $WORMROT_DEFAULT_RECEIVE_ARGS $DATA_MNEMONIC"
+        # Prepare extra arguments for wormhole receive if renaming is needed
+        local receive_args_extra=""
+        if [[ "$TARGET_NAME" != "$FILENAME_FROM_JSON" ]]; then
+            # IMPORTANT: --output-file might only work reliably for files, not directories.
+            # If receiving directories fails with this, further refinement is needed.
+            receive_args_extra="--output-file \"$TARGET_NAME\""
+            echo "Using --output-file \"$TARGET_NAME\" for receive command."
+        fi
+
+        # Execute the receive command, potentially with --output-file
+        execute_wormhole_command "$WORMROT_BIN receive $WORMROT_DEFAULT_RECEIVE_ARGS $receive_args_extra $DATA_MNEMONIC"
         local receive_item_exit_code=$?
 
         if [[ $receive_item_exit_code -ne 0 ]]; then
@@ -543,21 +553,8 @@ elif [[ $# -eq 0 ]]; then
         # No extraction needed anymore
         # If hash was verified (or skipped for dir), the item is considered successfully received.
         # The renaming logic previously applied to files now needs reconsideration.
-        # If wormhole handled renaming, our RECEIVED_FILE_PATH might be wrong.
-        # If wormhole overwrote, the file is correct.
-        # If we wanted to rename based on our check, we'd do it here *after* verification.
-
-        # Let's assume wormhole saved it as FILENAME_FROM_JSON and verification passed on that path.
-        # If TARGET_NAME was different due to collision check, rename now.
-        if [[ -e "$RECEIVED_FILE_PATH" && "$TARGET_NAME" != "$RECEIVED_FILE_PATH" ]]; then
-             echo "Renaming verified item '$RECEIVED_FILE_PATH' to '$TARGET_NAME' due to pre-existing item."
-             if ! mv -v "$RECEIVED_FILE_PATH" "$TARGET_NAME"; then
-                 echo "Error: Failed to rename '$RECEIVED_FILE_PATH' to '$TARGET_NAME'." >&2
-                 # Don't exit, but warn the user. The file is verified but has the original name.
-             else
-                 RECEIVED_FILE_PATH="$TARGET_NAME" # Update path variable
-             fi
-        fi
+        # The file should now exist at RECEIVED_FILE_PATH (which is TARGET_NAME).
+        # The renaming logic previously here is removed as --output-file should handle it.
 
         echo "Item '$RECEIVED_FILE_PATH' (item $CURRENT_INDEX/$EXPECTED_TOTAL) processed successfully."
 
