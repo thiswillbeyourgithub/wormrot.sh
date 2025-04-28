@@ -119,11 +119,14 @@ The script generates synchronized codes through a series of steps:
    - Creates the final code format: `prefix-mnemonic`
 
 5. **File Transfer Process**:
-   - The timestamp is calculated once at script start and used for all mnemonic generation
-   - For sending: First sends the number of files, then sends each file with a unique suffix-based code.
-   - For receiving: First receives the file count, then receives each file using the same suffix pattern
+   - The **base timestamp** is calculated once at script start and used as the foundation for *all* subsequent code generations within that run.
+   - For sending multiple items:
+     - For *each* item (file or directory), two codes are generated independently using the base timestamp, the secret, and unique suffixes (e.g., `meta1`, `data1` for the first item, `meta2`, `data2` for the second, etc.).
+     - First, a code (`metaN`) is used to send metadata (filename, hash, index, total count).
+     - Second, a different code (`dataN`) is used to send the actual file or directory content.
+   - For receiving: The receiver follows the exact same logic, generating the `metaN` code to receive metadata, and then the `dataN` code to receive the corresponding item content.
 
-The beauty of this approach is that both sides independently generate the same code without direct communication. However, both sender and receiver must start their scripts within the same time window (as defined by WORMROT_MODULO) to ensure they generate the same set of codes. If the script is launched less than 10s before the next window a helpful error occurs, suggesting to wait.
+The beauty of this approach is that both sides independently generate the same sequence of codes without direct communication, solely based on the initial timestamp, the shared secret, and the predictable suffix pattern (`meta1`, `data1`, `meta2`, `data2`...). This ensures sender and receiver remain synchronized even during the transfer of many files, provided they both start their scripts within the same time window (as defined by `WORMROT_MODULO`). If the script is launched less than 10s before the next window, a helpful error occurs, suggesting to wait.
 
 ## FAQ
 
