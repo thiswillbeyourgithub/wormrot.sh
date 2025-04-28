@@ -55,6 +55,13 @@ The script automatically detects what you want to do:
 ```bash
 # Provide file paths to send files
 ./wormrot.sh /path/to/file1 /path/to/file2
+
+# Note on sending directories:
+# If you provide a directory path, wormrot.sh will automatically create a compressed tarball
+# (using 'tar czvf') of the directory, send the tarball, and the receiving end will automatically
+# extract it. This means sending large directories containing already compressed files (like videos)
+# can be inefficient and may require significant temporary disk space (up to double the directory size)
+# on both the sender and receiver machines.
 ```
 
 ### Receiving files
