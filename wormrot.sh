@@ -427,9 +427,10 @@ elif [[ $# -eq 0 ]]; then
 
         echo "Received raw metadata JSON: '$FILE_META_JSON_RAW'"
 
-        # Parse filename and compressed_tar flag using jq
+        # Parse filename, compressed_tar flag, and sha256sum using jq
         local FILENAME_FROM_JSON=$(echo "$FILE_META_JSON_RAW" | jq -r '.filename' 2>/dev/null)
         local COMPRESSED_TAR=$(echo "$FILE_META_JSON_RAW" | jq -r '.compressed_tar' 2>/dev/null)
+        local EXPECTED_HASH=$(echo "$FILE_META_JSON_RAW" | jq -r '.sha256sum' 2>/dev/null)
 
         # Validate parsed metadata
         if [[ -z "$FILENAME_FROM_JSON" || "$FILENAME_FROM_JSON" == "null" ]]; then
@@ -440,8 +441,13 @@ elif [[ $# -eq 0 ]]; then
             echo "Error: Could not extract valid compressed_tar flag (0 or 1) from metadata JSON: '$FILE_META_JSON_RAW'" >&2
             exit 1
         fi
+        # Validate the hash format (64 hex characters)
+        if [[ -z "$EXPECTED_HASH" || "$EXPECTED_HASH" == "null" || ! "$EXPECTED_HASH" =~ ^[a-f0-9]{64}$ ]]; then
+            echo "Error: Could not extract valid sha256sum from metadata JSON: '$FILE_META_JSON_RAW'" >&2
+            exit 1
+        fi
 
-        echo "Metadata parsed - Filename: '$FILENAME_FROM_JSON', Compressed: $COMPRESSED_TAR"
+        echo "Metadata parsed - Filename: '$FILENAME_FROM_JSON', Compressed: $COMPRESSED_TAR, Expected Hash: $EXPECTED_HASH"
 
         # Generate mnemonic for file data
         local DATA_MNEMONIC=$(generate_mnemonic "data$i")
