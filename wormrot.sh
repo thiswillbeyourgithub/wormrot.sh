@@ -229,16 +229,20 @@ elif [[ $# -gt 0 ]]; then
         # Check if it's a directory
         if [[ -d "$item_path" ]]; then
             COMPRESSED_TAR=1
-            # Create tar archive in the current directory using basename
-            TEMP_TAR_FILE="$(basename "$item_path").tar.gz"
-            echo "Compressing directory: '$item_path' to '$TEMP_TAR_FILE'"
+            # Create a temporary tar archive
+            TEMP_TAR_FILE=$(mktemp --suffix=".wormrot-send.tar.gz")
+            if [[ -z "$TEMP_TAR_FILE" ]]; then
+                echo "Error: Failed to create temporary file for sending archive." >&2
+                exit 1
+            fi
+            echo "Compressing directory: '$item_path' to temporary file '$TEMP_TAR_FILE'"
             # Use -C to change directory to the parent of item_path to preserve hierarchy relative to the parent
             local PARENT_DIR=$(dirname "$item_path")
             local ITEM_BASENAME=$(basename "$item_path")
             if ! tar czf "$TEMP_TAR_FILE" -C "$PARENT_DIR" "$ITEM_BASENAME"; then
-                echo "Error: Failed to create tar archive for '$item_path'" >&2
+                echo "Error: Failed to create tar archive for '$item_path' into '$TEMP_TAR_FILE'" >&2
                 # Attempt cleanup before exiting
-                [[ -f "$TEMP_TAR_FILE" ]] && rm "$TEMP_TAR_FILE"
+                [[ -f "$TEMP_TAR_FILE" ]] && rm "$TEMP_TAR_FILE" # Use non-verbose rm here as it's an error path
                 exit 1
             fi
             FILE_TO_SEND="$TEMP_TAR_FILE"
@@ -305,10 +309,10 @@ elif [[ $# -gt 0 ]]; then
         echo "Using data mnemonic: $DATA_MNEMONIC"
         execute_wormhole_command "$WORMROT_BIN send \"$FILE_TO_SEND\" $WORMROT_DEFAULT_SEND_ARGS --code $DATA_MNEMONIC"
 
-        # Clean up temporary tar file if created
-        if [[ -n "$TEMP_TAR_FILE" && -f "$TEMP_TAR_FILE" ]]; then
+        # Clean up temporary tar file if created (only applies if COMPRESSED_TAR was 1)
+        if [[ "$COMPRESSED_TAR" -eq 1 && -n "$TEMP_TAR_FILE" && -f "$TEMP_TAR_FILE" ]]; then
             echo "Cleaning up temporary archive: '$TEMP_TAR_FILE'"
-            rm "$TEMP_TAR_FILE"
+            rm -v "$TEMP_TAR_FILE" # Use verbose removal on success path
         fi
     done
 
