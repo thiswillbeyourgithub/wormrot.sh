@@ -325,6 +325,8 @@ elif [[ $# -eq 0 ]]; then
         if [[ $EXPECTED_TOTAL -ne -1 ]]; then
             progress_indicator=" $CURRENT_INDEX/$EXPECTED_TOTAL"
         fi
+        # Print the expected mnemonic *before* attempting to receive
+        echo "Expecting metadata mnemonic for item $CURRENT_INDEX: $META_MNEMONIC"
         echo "Receiving metadata for item$progress_indicator..."
 
         # Receive metadata JSON
