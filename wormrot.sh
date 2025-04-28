@@ -199,106 +199,247 @@ elif [[ $# -gt 0 ]]; then
     fi
     
     # First, send the count as JSON using the base mnemonic
-    local JSON_CONTENT="{\"number_of_files\": $COUNT_FILES}"
+    local JSON_COUNT_CONTENT="{\"number_of_files\": $COUNT_FILES}"
     echo "Sending file count: $COUNT_FILES"
-    echo "Full JSON content: $JSON_CONTENT"
+    echo "Full JSON content: $JSON_COUNT_CONTENT"
     
     # Check if the JSON content can be parsed by jq
     if ! echo "$JSON_CONTENT" | jq . &>/dev/null; then
         echo "Error: Generated JSON is not valid. Please check your inputs."
         exit 1
     fi
-    
+
     # Send file count and check exit code
-    execute_wormhole_command "$WORMROT_BIN send --text \"$JSON_CONTENT\" $WORMROT_DEFAULT_SEND_ARGS --code $MNEMONIC"
-    
-    # Then send each file with a rotated mnemonic
+    execute_wormhole_command "$WORMROT_BIN send --text \"$JSON_COUNT_CONTENT\" $WORMROT_DEFAULT_SEND_ARGS --code $MNEMONIC"
+
+    # Then send each file/directory with rotated mnemonics for metadata and data
     local FILE_INDEX=0
-    for file in "${FILES[@]}"; do
+    for item_path in "${FILES[@]}"; do
         FILE_INDEX=$((FILE_INDEX + 1))
-        local FILE_MNEMONIC=$(generate_mnemonic "newfile$FILE_INDEX")
-        local MNEMONIC_EXIT_CODE=$?
-        
-        if [[ $MNEMONIC_EXIT_CODE -ne 0 ]]; then
-            echo "Error: Mnemonic generation failed with exit code $MNEMONIC_EXIT_CODE" >&2
-            echo "Aborting operation." >&2
+        local FILE_TO_SEND=""
+        local COMPRESSED_TAR=0
+        local TEMP_TAR_FILE=""
+
+        # Check if it's a directory
+        if [[ -d "$item_path" ]]; then
+            COMPRESSED_TAR=1
+            # Create tar archive in the current directory
+            TEMP_TAR_FILE="$(basename "$item_path").tar.gz"
+            echo "Compressing directory: $item_path to $TEMP_TAR_FILE"
+            if ! tar czf "$TEMP_TAR_FILE" "$item_path"; then
+                echo "Error: Failed to create tar archive for $item_path" >&2
+                # Attempt cleanup before exiting
+                [[ -f "$TEMP_TAR_FILE" ]] && rm "$TEMP_TAR_FILE"
+                exit 1
+            fi
+            FILE_TO_SEND="$TEMP_TAR_FILE"
+        else
+            # It's a file
+            COMPRESSED_TAR=0
+            FILE_TO_SEND="$item_path"
+        fi
+
+        # Generate mnemonic for metadata
+        local META_MNEMONIC=$(generate_mnemonic "meta$FILE_INDEX")
+        local META_MNEMONIC_EXIT_CODE=$?
+        if [[ $META_MNEMONIC_EXIT_CODE -ne 0 ]]; then
+            echo "Error: Metadata mnemonic generation failed for file $FILE_INDEX" >&2
+            [[ -n "$TEMP_TAR_FILE" && -f "$TEMP_TAR_FILE" ]] && rm "$TEMP_TAR_FILE" # Cleanup tar if created
             exit 1
         fi
-        
-        echo "Sending file $FILE_INDEX/$COUNT_FILES: $file"
-        echo "Using mnemonic: $FILE_MNEMONIC"
-        execute_wormhole_command "$WORMROT_BIN send \"$file\" $WORMROT_DEFAULT_SEND_ARGS --code $FILE_MNEMONIC"
+
+        # Create metadata JSON
+        local FILENAME=$(basename "$FILE_TO_SEND")
+        local FILE_META_JSON="{\"filename\": \"$FILENAME\", \"compressed_tar\": $COMPRESSED_TAR}"
+        echo "Sending metadata for file $FILE_INDEX/$COUNT_FILES: $FILE_META_JSON"
+        echo "Using metadata mnemonic: $META_MNEMONIC"
+
+        # Send metadata JSON
+        execute_wormhole_command "$WORMROT_BIN send --text \"$FILE_META_JSON\" $WORMROT_DEFAULT_SEND_ARGS --code $META_MNEMONIC"
+
+        # Generate mnemonic for file data
+        local DATA_MNEMONIC=$(generate_mnemonic "data$FILE_INDEX")
+        local DATA_MNEMONIC_EXIT_CODE=$?
+         if [[ $DATA_MNEMONIC_EXIT_CODE -ne 0 ]]; then
+            echo "Error: Data mnemonic generation failed for file $FILE_INDEX" >&2
+            [[ -n "$TEMP_TAR_FILE" && -f "$TEMP_TAR_FILE" ]] && rm "$TEMP_TAR_FILE" # Cleanup tar if created
+            exit 1
+        fi
+
+        # Send the actual file/archive
+        echo "Sending file data $FILE_INDEX/$COUNT_FILES: $FILE_TO_SEND"
+        echo "Using data mnemonic: $DATA_MNEMONIC"
+        execute_wormhole_command "$WORMROT_BIN send \"$FILE_TO_SEND\" $WORMROT_DEFAULT_SEND_ARGS --code $DATA_MNEMONIC"
+
+        # Clean up temporary tar file if created
+        if [[ -n "$TEMP_TAR_FILE" && -f "$TEMP_TAR_FILE" ]]; then
+            echo "Cleaning up temporary archive: $TEMP_TAR_FILE"
+            rm "$TEMP_TAR_FILE"
+        fi
     done
+
 elif [[ $# -eq 0 ]]; then
+    # --- RECEIVE MODE ---
     echo "Using base mnemonic: $MNEMONIC"
     # First, receive the count as JSON
     echo "Receiving file count..."
-    # Use the timeout command execution function
-    local COUNT_FILES_JSON
-    COUNT_FILES_JSON=$(
-      # Set up timeout trap
+    # Use the timeout command execution function to receive the file count JSON
+    local COUNT_FILES_JSON_RAW
+    COUNT_FILES_JSON_RAW=$(
+      # Set up timeout trap for receiving count
       trap timeout_handler ALRM
       
-      # Start timer in background
+      # Start timer in background for receiving count
       (
           sleep $WORMROT_MODULO
           kill -ALRM $$ 2>/dev/null
       ) &
-      local TIMER_PID=$!
-      
-      # Execute the command
+      local COUNT_TIMER_PID=$!
+
+      # Execute the receive command for count
       eval "$WORMROT_BIN receive --only-text $WORMROT_DEFAULT_RECEIVE_ARGS $MNEMONIC"
-      local exit_code=$?
-      
-      # Kill the timer and reset trap
-      kill $TIMER_PID 2>/dev/null
+      local receive_count_exit_code=$?
+
+      # Kill the timer and reset trap for count
+      kill $COUNT_TIMER_PID 2>/dev/null
       trap - ALRM
-      
-      if [[ $exit_code -ne 0 ]]; then
-          echo "Error: Failed to receive file count. Exit code: $exit_code" >&2
-          exit $exit_code
+
+      # Check exit code for count receive
+      if [[ $receive_count_exit_code -ne 0 ]]; then
+          echo "Error: Failed to receive file count JSON. Exit code: $receive_count_exit_code" >&2
+          exit $receive_count_exit_code
       fi
     )
-    # Check if the command was successful
-    local exit_code=$?
-    if [[ $exit_code -ne 0 ]]; then
-        echo "Error: Failed to receive file count. Exit code: $exit_code"
-        exit $exit_code
+    # Check if the subshell command itself failed (e.g., trap triggered)
+    local subshell_exit_code=$?
+    if [[ $subshell_exit_code -ne 0 ]]; then
+        echo "Error during file count reception. Exit code: $subshell_exit_code" >&2
+        exit $subshell_exit_code
     fi
-    echo "Received JSON content: $COUNT_FILES_JSON"
-    
-    # Fix potentially malformed JSON by adding quotes around keys if missing
-    local FIXED_JSON=$(echo "$COUNT_FILES_JSON" | sed 's/{number_of_files:/{"number_of_files":/g')
-    
+
+    echo "Received raw count JSON: $COUNT_FILES_JSON_RAW"
+
     # Extract the number of files using jq
-    local COUNT_FILES=$(echo "$FIXED_JSON" | jq -r '.number_of_files' 2>/dev/null)
+    local COUNT_FILES=$(echo "$COUNT_FILES_JSON_RAW" | jq -r '.number_of_files' 2>/dev/null)
     
     # If jq fails or doesn't return a valid number, exit with error
-    if ! [[ "$COUNT_FILES" =~ ^[0-9]+$ ]]; then
-        echo "Error: Could not extract file count from received JSON: $COUNT_FILES_JSON"
-        echo "Make sure the JSON format is correct and contains a 'number_of_files' field."
+    if ! [[ "$COUNT_FILES" =~ ^[1-9][0-9]*$ || "$COUNT_FILES" == "0" ]]; then # Allow 0 files
+        echo "Error: Could not extract a valid file count from received JSON: '$COUNT_FILES_JSON_RAW'" >&2
+        echo "Make sure the JSON format is correct (e.g., {\"number_of_files\": 1}) and contains a non-negative integer 'number_of_files' field." >&2
         exit 1
     fi
-    
-    echo "Will receive $COUNT_FILES file(s)"
-    
-    # Then receive each file with a rotated mnemonic
+
+    echo "Expecting $COUNT_FILES file(s)/archive(s)"
+
+    # Then receive metadata and file/archive for each item
     for ((i=1; i<=COUNT_FILES; i++)); do
-        local FILE_MNEMONIC=$(generate_mnemonic "newfile$i")
-        local MNEMONIC_EXIT_CODE=$?
-        
-        if [[ $MNEMONIC_EXIT_CODE -ne 0 ]]; then
-            echo "Error: Mnemonic generation failed with exit code $MNEMONIC_EXIT_CODE" >&2
-            echo "Aborting operation." >&2
+        # Generate mnemonic for metadata
+        local META_MNEMONIC=$(generate_mnemonic "meta$i")
+        local META_MNEMONIC_EXIT_CODE=$?
+        if [[ $META_MNEMONIC_EXIT_CODE -ne 0 ]]; then
+            echo "Error: Metadata mnemonic generation failed for file $i" >&2
             exit 1
         fi
-        
-        echo "Receiving file $i/$COUNT_FILES"
-        echo "Using mnemonic: $FILE_MNEMONIC"
-        execute_wormhole_command "$WORMROT_BIN receive $WORMROT_DEFAULT_RECEIVE_ARGS $FILE_MNEMONIC"
+
+        echo "Receiving metadata for file $i/$COUNT_FILES..."
+        echo "Using metadata mnemonic: $META_MNEMONIC"
+
+        # Receive metadata JSON
+        local FILE_META_JSON_RAW
+        FILE_META_JSON_RAW=$(
+          trap timeout_handler ALRM
+          ( sleep $WORMROT_MODULO; kill -ALRM $$ 2>/dev/null ) & local TIMER_PID=$!
+          eval "$WORMROT_BIN receive --only-text $WORMROT_DEFAULT_RECEIVE_ARGS $META_MNEMONIC"
+          local receive_meta_exit_code=$?
+          kill $TIMER_PID 2>/dev/null
+          trap - ALRM
+          if [[ $receive_meta_exit_code -ne 0 ]]; then
+              echo "Error: Failed to receive metadata JSON for file $i. Exit code: $receive_meta_exit_code" >&2
+              exit $receive_meta_exit_code
+          fi
+        )
+        local subshell_meta_exit_code=$?
+        if [[ $subshell_meta_exit_code -ne 0 ]]; then
+            echo "Error during metadata reception for file $i. Exit code: $subshell_meta_exit_code" >&2
+            exit $subshell_meta_exit_code
+        fi
+
+        echo "Received raw metadata JSON: $FILE_META_JSON_RAW"
+
+        # Parse filename and compressed_tar flag using jq
+        local FILENAME=$(echo "$FILE_META_JSON_RAW" | jq -r '.filename' 2>/dev/null)
+        local COMPRESSED_TAR=$(echo "$FILE_META_JSON_RAW" | jq -r '.compressed_tar' 2>/dev/null)
+
+        # Validate parsed metadata
+        if [[ -z "$FILENAME" || "$FILENAME" == "null" ]]; then
+            echo "Error: Could not extract filename from metadata JSON: '$FILE_META_JSON_RAW'" >&2
+            exit 1
+        fi
+         if ! [[ "$COMPRESSED_TAR" =~ ^[01]$ ]]; then
+            echo "Error: Could not extract valid compressed_tar flag (0 or 1) from metadata JSON: '$FILE_META_JSON_RAW'" >&2
+            exit 1
+        fi
+
+        echo "Metadata parsed - Filename: $FILENAME, Compressed: $COMPRESSED_TAR"
+
+        # Generate mnemonic for file data
+        local DATA_MNEMONIC=$(generate_mnemonic "data$i")
+        local DATA_MNEMONIC_EXIT_CODE=$?
+        if [[ $DATA_MNEMONIC_EXIT_CODE -ne 0 ]]; then
+            echo "Error: Data mnemonic generation failed for file $i" >&2
+            exit 1
+        fi
+
+        echo "Receiving file data $i/$COUNT_FILES..."
+        echo "Using data mnemonic: $DATA_MNEMONIC"
+
+        if [[ "$COMPRESSED_TAR" -eq 1 ]]; then
+            # Receive compressed tar archive to a temporary file
+            local TEMP_RECEIVED_FILE
+            TEMP_RECEIVED_FILE=$(mktemp --suffix=".tar.gz")
+            if [[ -z "$TEMP_RECEIVED_FILE" ]]; then
+                echo "Error: Failed to create temporary file for receiving archive." >&2
+                exit 1
+            fi
+            echo "Receiving archive to temporary file: $TEMP_RECEIVED_FILE"
+
+            # Use execute_wormhole_command for receiving the file data
+            execute_wormhole_command "$WORMROT_BIN receive $WORMROT_DEFAULT_RECEIVE_ARGS --output-file \"$TEMP_RECEIVED_FILE\" $DATA_MNEMONIC"
+            local receive_archive_exit_code=$?
+
+            if [[ $receive_archive_exit_code -ne 0 ]]; then
+                echo "Error: Failed to receive archive data for file $i. Exit code: $receive_archive_exit_code" >&2
+                rm "$TEMP_RECEIVED_FILE" # Clean up temp file on error
+                exit $receive_archive_exit_code
+            fi
+
+            echo "Archive received. Extracting..."
+            # Extract the archive
+            if ! tar xzf "$TEMP_RECEIVED_FILE"; then
+                 echo "Error: Failed to extract received archive: $TEMP_RECEIVED_FILE" >&2
+                 rm "$TEMP_RECEIVED_FILE" # Clean up temp file on error
+                 exit 1
+            fi
+
+            echo "Extraction complete. Cleaning up temporary file."
+            rm "$TEMP_RECEIVED_FILE"
+        else
+            # Receive regular file
+            echo "Receiving file directly to: $FILENAME"
+            # Use execute_wormhole_command for receiving the file data
+            execute_wormhole_command "$WORMROT_BIN receive $WORMROT_DEFAULT_RECEIVE_ARGS --output-file \"$FILENAME\" $DATA_MNEMONIC"
+            local receive_file_exit_code=$?
+
+            if [[ $receive_file_exit_code -ne 0 ]]; then
+                echo "Error: Failed to receive file data for file $i. Exit code: $receive_file_exit_code" >&2
+                # Note: wormhole might have created a partial file, manual cleanup might be needed.
+                exit $receive_file_exit_code
+            fi
+            echo "File '$FILENAME' received."
+        fi
     done
 else
-    echo "Usage: $0 [<file(s)>|-v|--version]"
+    echo "Usage: $0 [<file(s)>|-v|--version|-h|--help]"
     echo "  - With no arguments: receive files"
     echo "  - With file arguments: send files"
     exit 1
