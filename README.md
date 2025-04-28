@@ -34,7 +34,7 @@ It's especially useful for regularly transferring files between your own devices
 chmod +x wormrot.sh
 ```
 
-Note: By default, the script checks if `uvx` is installed. If found, it uses `uvx` to call the latest versions of HumanReadableSeed and magic-wormhole. If `uvx` is not installed, it will default to using `wormhole` and `HumanReadableSeed` commands directly, which you can install using `pip install -U magic-wormhole HumanReadableSeed`. On [termux](https://termux.dev/) you might need instead to do `pkg install magic-wormhole-rs`, but this rust re implementation is still missing a needed feature: sending texts.
+Note: By default, the script checks if `uvx` is installed. If found, it uses `uvx` to call the latest versions of HumanReadableSeed and magic-wormhole. If `uvx` is not installed, it will default to using `wormhole` and `HumanReadableSeed` commands directly, which you can install using `pip install -U magic-wormhole HumanReadableSeed`. On [termux](https://termux.dev/) you might need instead to do `pkg install magic-wormhole-rs`; this Rust implementation supports the text sending features required by `wormrot.sh`.
 
 ## Usage
 
@@ -44,7 +44,7 @@ First, set up the secret environment variable:
 export WORMROT_SECRET="your-secret-here"
 ```
 
-**Important**: Sender and receiver scripts must be started at roughly the same time (within the same time window as defined by WORMROT_MODULO). Starting the scripts in different time windows will cause the codes to be different and the transfer to fail.
+**Important**: Sender and receiver scripts must be started at roughly the same time (within the same time window as defined by WORMROT_MODULO). Starting the scripts in different time windows will cause the codes to be different and the transfer to fail. The script includes a safeguard: it will exit with an error if started less than 10 seconds before the next time window boundary, prompting you to wait briefly.
 
 The script automatically detects what you want to do:
 - Run with file paths to send files
@@ -91,16 +91,16 @@ The script can be customized using these environment variables:
 - `WORMROT_BIN`: Command to run wormhole (default: "uvx --quiet --from magic-wormhole@latest wormhole" if uvx is installed, otherwise "wormhole")
 - `WORMROT_HRS_BIN`: Command to run HumanReadableSeed (default: "uvx --quiet HumanReadableSeed@latest" if uvx is installed, otherwise "HumanReadableSeed")
 - `WORMROT_DEFAULT_SEND_ARGS`: Default arguments for send command (default: "--no-qr --hide-progress")
-- `WORMROT_DEFAULT_RECEIVE_ARGS`: Default arguments for receive command (default: "--hide-progress")
+- `WORMROT_DEFAULT_RECEIVE_ARGS`: Default arguments for the *data* receive command (default: "--accept-file --hide-progress"). Note: Metadata reception uses `--only-text`.
 
 ## How It Works
 
 The script generates synchronized codes through a series of steps:
 
-1. **Time Synchronization**: 
-   - Gets the current UNIX timestamp (using UTC time)
-   - Applies modulo to create time windows (default 60s)
-   - Adjusts modulo slightly for timestamps with small remainders
+1. **Time Synchronization**:
+   - Gets the current UNIX timestamp (using UTC time) at script start (the **base timestamp**).
+   - Uses the `WORMROT_MODULO` value (default 60s) to define time windows based on the base timestamp.
+   - Includes a check to prevent starting if the base timestamp is less than 10 seconds before the next window boundary.
 
 2. **Period Key Generation**:
    - Creates a unique key for the current time period using the formula:
@@ -122,9 +122,9 @@ The script generates synchronized codes through a series of steps:
    - The **base timestamp** is calculated once at script start and used as the foundation for *all* subsequent code generations within that run.
    - For sending multiple items:
      - For *each* item (file or directory), two codes are generated independently using the base timestamp, the secret, and unique suffixes (e.g., `meta1`, `data1` for the first item, `meta2`, `data2` for the second, etc.).
-     - First, a code (`metaN`) is used to send metadata (filename, hash, index, total count).
+     - First, a code (`metaN`) is used to send metadata as a JSON text message (e.g., `{"filename": "file.txt", "sha256sum": "hash_value", "index": 1, "total": 3}`). For directories, the `sha256sum` field contains the placeholder string `DIRECTORY_HASH_SKIPPED`.
      - Second, a different code (`dataN`) is used to send the actual file or directory content.
-   - For receiving: The receiver follows the exact same logic, generating the `metaN` code to receive metadata, and then the `dataN` code to receive the corresponding item content.
+   - For receiving: The receiver follows the exact same logic, generating the `metaN` code to receive the metadata JSON, parsing it to get the filename, expected hash (or placeholder), index, and total count. Then, it generates the `dataN` code to receive the corresponding item content. It verifies the hash for files after reception and handles potential filename collisions by appending `_N`.
 
 The beauty of this approach is that both sides independently generate the same sequence of codes without direct communication, solely based on the initial timestamp, the shared secret, and the predictable suffix pattern (`meta1`, `data1`, `meta2`, `data2`...). This ensures sender and receiver remain synchronized even during the transfer of many files, provided they both start their scripts within the same time window (as defined by `WORMROT_MODULO`). If the script is launched less than 10s before the next window, a helpful error occurs, suggesting to wait.
 
@@ -144,17 +144,16 @@ The current implementation sacrifices the theoretical security of a pure counter
 
 ### Why is it sometimes slow?
 
-`wormrot.sh` performs several distinct operations for each transfer, each requiring a separate magic-wormhole connection setup, which can take some time:
+`wormrot.sh` performs two distinct magic-wormhole operations *per item* being transferred, each requiring its own connection setup, which contributes to the total time:
 
-1.  **Initial Handshake (File Count)**: The sender first sends a text message containing a JSON object with the total number of files/directories being transferred. The receiver waits for this message.
-2.  **Per-File Metadata Transfer**: For *each* file or directory:
-    *   The sender sends another text message containing a JSON object with metadata: the file's hash, its original name, and whether it was originally a directory.
-    *   The receiver waits for this metadata message.
-3.  **Per-File Content Transfer**: For *each* file or directory:
-    *   The sender sends the actual file content (or the directory contents).
-    *   The receiver waits to receive the file content.
+1.  **Per-Item Metadata Transfer**: For *each* file or directory:
+    *   The sender sends a text message containing a JSON object with metadata: the item's original basename, its sha256 hash (or a placeholder for directories), the item's index in the transfer sequence (1, 2, 3...), and the total number of items being sent.
+    *   The receiver waits for this metadata message using the corresponding `metaN` code. The total count is learned from the metadata of the *first* item.
+2.  **Per-Item Content Transfer**: For *each* file or directory:
+    *   The sender sends the actual file content (or the directory contents) using the corresponding `dataN` code.
+    *   The receiver waits to receive the file/directory content using the `dataN` code.
 
-Each of these steps involves establishing a connection through the magic-wormhole rendezvous server, generating keys, and confirming the connection. This overhead, repeated for the initial count and then twice for *each* file, contributes to the overall transfer time, especially for transfers involving many small files.
+Each of these steps (metadata send/receive, data send/receive) involves establishing a connection through the magic-wormhole rendezvous server, generating keys, and confirming the connection. This overhead, repeated twice for *each* file or directory, contributes to the overall transfer time, especially for transfers involving many small items.
 
 ### Why not use fowl for multiple file transfers?
 
