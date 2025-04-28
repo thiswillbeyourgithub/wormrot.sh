@@ -203,7 +203,30 @@ elif [[ $# -gt 0 ]]; then
         echo "Error: No valid files provided"
         exit 1
     fi
-    
+
+    # --- Pre-generate all mnemonics ---
+    echo "Pre-generating mnemonics for $COUNT_FILES file(s)..."
+    local -a META_MNEMONICS DATA_MNEMONICS
+    for ((idx=1; idx<=COUNT_FILES; idx++)); do
+        local meta_m=$(generate_mnemonic "meta$idx" false) # Don't check boundary for subsequent mnemonics
+        local meta_exit_code=$?
+        if [[ $meta_exit_code -ne 0 ]]; then
+            echo "Error: Failed to pre-generate metadata mnemonic for item $idx" >&2
+            exit 1
+        fi
+        META_MNEMONICS+=("$meta_m")
+
+        local data_m=$(generate_mnemonic "data$idx" false) # Don't check boundary
+        local data_exit_code=$?
+         if [[ $data_exit_code -ne 0 ]]; then
+            echo "Error: Failed to pre-generate data mnemonic for item $idx" >&2
+            exit 1
+        fi
+        DATA_MNEMONICS+=("$data_m")
+    done
+    echo "Mnemonics pre-generated."
+    # --- End Pre-generation ---
+
     # First, send the count as JSON using the base mnemonic
     local JSON_COUNT_CONTENT="{\"number_of_files\": $COUNT_FILES}"
     echo "Sending file count: $COUNT_FILES"
@@ -262,13 +285,12 @@ elif [[ $# -gt 0 ]]; then
         fi
         echo "Calculated hash: $FILE_HASH"
 
-        # Generate mnemonic for metadata
-        local META_MNEMONIC=$(generate_mnemonic "meta$FILE_INDEX")
-        local META_MNEMONIC_EXIT_CODE=$?
-        if [[ $META_MNEMONIC_EXIT_CODE -ne 0 ]]; then
-            echo "Error: Metadata mnemonic generation failed for item $FILE_INDEX ('$item_path')" >&2
-            [[ -n "$TEMP_TAR_FILE" && -f "$TEMP_TAR_FILE" ]] && rm "$TEMP_TAR_FILE" # Cleanup tar if created
-            exit 1
+        # Retrieve pre-generated mnemonic for metadata
+        local META_MNEMONIC=${META_MNEMONICS[$FILE_INDEX]}
+        if [[ -z "$META_MNEMONIC" ]]; then
+             echo "Error: Could not retrieve pre-generated metadata mnemonic for item $FILE_INDEX" >&2
+             [[ -n "$TEMP_TAR_FILE" && -f "$TEMP_TAR_FILE" ]] && rm "$TEMP_TAR_FILE" # Cleanup tar if created
+             exit 1
         fi
 
         # Create metadata JSON
@@ -295,13 +317,12 @@ elif [[ $# -gt 0 ]]; then
         # Send metadata JSON - Use single quotes around the JSON for --text
         execute_wormhole_command "$WORMROT_BIN send --text '$FILE_META_JSON' $WORMROT_DEFAULT_SEND_ARGS --code $META_MNEMONIC"
 
-        # Generate mnemonic for file data
-        local DATA_MNEMONIC=$(generate_mnemonic "data$FILE_INDEX")
-        local DATA_MNEMONIC_EXIT_CODE=$?
-         if [[ $DATA_MNEMONIC_EXIT_CODE -ne 0 ]]; then
-            echo "Error: Data mnemonic generation failed for item $FILE_INDEX ('$item_path')" >&2
-            [[ -n "$TEMP_TAR_FILE" && -f "$TEMP_TAR_FILE" ]] && rm "$TEMP_TAR_FILE" # Cleanup tar if created
-            exit 1
+        # Retrieve pre-generated mnemonic for file data
+        local DATA_MNEMONIC=${DATA_MNEMONICS[$FILE_INDEX]}
+        if [[ -z "$DATA_MNEMONIC" ]]; then
+             echo "Error: Could not retrieve pre-generated data mnemonic for item $FILE_INDEX" >&2
+             [[ -n "$TEMP_TAR_FILE" && -f "$TEMP_TAR_FILE" ]] && rm "$TEMP_TAR_FILE" # Cleanup tar if created
+             exit 1
         fi
 
         # Send the actual file/archive
@@ -382,14 +403,37 @@ elif [[ $# -eq 0 ]]; then
 
     echo "Expecting $COUNT_FILES file(s)/archive(s)"
 
+    # --- Pre-generate all mnemonics ---
+    echo "Pre-generating mnemonics for $COUNT_FILES file(s)..."
+    local -a META_MNEMONICS DATA_MNEMONICS
+    for ((idx=1; idx<=COUNT_FILES; idx++)); do
+        local meta_m=$(generate_mnemonic "meta$idx" false) # Don't check boundary
+        local meta_exit_code=$?
+        if [[ $meta_exit_code -ne 0 ]]; then
+            echo "Error: Failed to pre-generate metadata mnemonic for item $idx" >&2
+            exit 1
+        fi
+        META_MNEMONICS+=("$meta_m")
+
+        local data_m=$(generate_mnemonic "data$idx" false) # Don't check boundary
+        local data_exit_code=$?
+         if [[ $data_exit_code -ne 0 ]]; then
+            echo "Error: Failed to pre-generate data mnemonic for item $idx" >&2
+            exit 1
+        fi
+        DATA_MNEMONICS+=("$data_m")
+    done
+    echo "Mnemonics pre-generated."
+    # --- End Pre-generation ---
+
+
     # Then receive metadata and file/archive for each item
     for ((i=1; i<=COUNT_FILES; i++)); do
-        # Generate mnemonic for metadata
-        local META_MNEMONIC=$(generate_mnemonic "meta$i")
-        local META_MNEMONIC_EXIT_CODE=$?
-        if [[ $META_MNEMONIC_EXIT_CODE -ne 0 ]]; then
-            echo "Error: Metadata mnemonic generation failed for file $i" >&2
-            exit 1
+        # Retrieve pre-generated mnemonic for metadata
+        local META_MNEMONIC=${META_MNEMONICS[$i]}
+         if [[ -z "$META_MNEMONIC" ]]; then
+             echo "Error: Could not retrieve pre-generated metadata mnemonic for item $i" >&2
+             exit 1
         fi
 
         echo "Receiving metadata for item $i/$COUNT_FILES..."
@@ -453,12 +497,11 @@ elif [[ $# -eq 0 ]]; then
 
         echo "Metadata parsed - Filename: '$FILENAME_FROM_JSON', Compressed: $COMPRESSED_TAR, Expected Hash: $EXPECTED_HASH"
 
-        # Generate mnemonic for file data
-        local DATA_MNEMONIC=$(generate_mnemonic "data$i")
-        local DATA_MNEMONIC_EXIT_CODE=$?
-        if [[ $DATA_MNEMONIC_EXIT_CODE -ne 0 ]]; then
-            echo "Error: Data mnemonic generation failed for file $i" >&2
-            exit 1
+        # Retrieve pre-generated mnemonic for file data
+        local DATA_MNEMONIC=${DATA_MNEMONICS[$i]}
+        if [[ -z "$DATA_MNEMONIC" ]]; then
+             echo "Error: Could not retrieve pre-generated data mnemonic for item $i" >&2
+             exit 1
         fi
 
         echo "Receiving file data for item $i/$COUNT_FILES..."
