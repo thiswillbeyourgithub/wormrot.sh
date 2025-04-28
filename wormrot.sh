@@ -553,7 +553,7 @@ elif [[ $# -eq 0 ]]; then
                  exit 1
             fi
             echo "Extraction complete for '$FILENAME_FROM_JSON'. Cleaning up temporary file."
-            rm "$RECEIVED_FILE_PATH" # Remove the temp tar.gz file
+            rm -v "$RECEIVED_FILE_PATH" # Remove the temp tar.gz file verbosely
         else
             # Hash matched for a regular file, nothing more to do here
             echo "File '$FILENAME_FROM_JSON' received and verified successfully."
