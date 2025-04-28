@@ -57,9 +57,9 @@ The script automatically detects what you want to do:
 ./wormrot.sh /path/to/file1 /path/to/file2
 ```
 
-**Important Note on Sending Directories:**
+**Note on Sending Directories:**
 
-If you provide a directory path, `wormrot.sh` will automatically create a compressed tarball (using `tar czvf`) of the directory, send the tarball, and the receiving end will automatically extract it. This means sending large directories containing already compressed files (like videos) can be inefficient and may require significant temporary disk space (up to double the directory size) on both the sender and receiver machines.
+If you provide a directory path, `magic-wormhole` handles sending the entire directory recursively.
 
 ### Receiving files
 
@@ -145,10 +145,10 @@ The current implementation sacrifices the theoretical security of a pure counter
 
 1.  **Initial Handshake (File Count)**: The sender first sends a text message containing a JSON object with the total number of files/directories being transferred. The receiver waits for this message.
 2.  **Per-File Metadata Transfer**: For *each* file or directory:
-    *   The sender sends another text message containing a JSON object with metadata: the file's hash, its original name, and whether it was originally a directory (indicating it needs decompression on the receiver side).
+    *   The sender sends another text message containing a JSON object with metadata: the file's hash, its original name, and whether it was originally a directory.
     *   The receiver waits for this metadata message.
 3.  **Per-File Content Transfer**: For *each* file or directory:
-    *   The sender sends the actual file content (or the compressed tarball if it was a directory).
+    *   The sender sends the actual file content (or the directory contents).
     *   The receiver waits to receive the file content.
 
 Each of these steps involves establishing a connection through the magic-wormhole rendezvous server, generating keys, and confirming the connection. This overhead, repeated for the initial count and then twice for *each* file, contributes to the overall transfer time, especially for transfers involving many small files.
