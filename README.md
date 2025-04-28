@@ -120,7 +120,7 @@ The script generates synchronized codes through a series of steps:
 
 5. **File Transfer Process**:
    - The timestamp is calculated once at script start and used for all mnemonic generation
-   - For sending: First sends the number of files, then sends each file with a unique suffix-based code. (Note: A future improvement planned is to use [fowl](https://github.com/meejah/fowl), by the same author as magic-wormhole, to send multiple files through a single tunnel instead of requiring multiple codes.)
+   - For sending: First sends the number of files, then sends each file with a unique suffix-based code.
    - For receiving: First receives the file count, then receives each file using the same suffix pattern
 
 The beauty of this approach is that both sides independently generate the same code without direct communication. However, both sender and receiver must start their scripts within the same time window (as defined by WORMROT_MODULO) to ensure they generate the same set of codes. If the script is launched less than 10s before the next window a helpful error occurs, suggesting to wait.
@@ -138,6 +138,10 @@ While HMAC with counter-based approaches (similar to TOTP) could be used for cod
 - **Predictable validity window**: The time-based approach creates natural windows when codes are valid
 
 The current implementation sacrifices the theoretical security of a pure counter-based approach for significant practical usability benefits in real-world file transfers.
+
+### Why not use fowl for multiple file transfers?
+
+A future improvement planned is to use [fowl](https://github.com/meejah/fowl), by the same author as magic-wormhole, to send multiple files through a single tunnel instead of requiring multiple codes. Currently, `wormrot.sh` sends each file individually with a unique code derived from the base time-synchronized code.
 
 ## Development
 
