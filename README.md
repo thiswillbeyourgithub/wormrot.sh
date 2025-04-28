@@ -139,6 +139,20 @@ While HMAC with counter-based approaches (similar to TOTP) could be used for cod
 
 The current implementation sacrifices the theoretical security of a pure counter-based approach for significant practical usability benefits in real-world file transfers.
 
+### Why is it sometimes slow?
+
+`wormrot.sh` performs several distinct operations for each transfer, each requiring a separate magic-wormhole connection setup, which can take some time:
+
+1.  **Initial Handshake (File Count)**: The sender first sends a text message containing a JSON object with the total number of files/directories being transferred. The receiver waits for this message.
+2.  **Per-File Metadata Transfer**: For *each* file or directory:
+    *   The sender sends another text message containing a JSON object with metadata: the file's hash, its original name, and whether it was originally a directory (indicating it needs decompression on the receiver side).
+    *   The receiver waits for this metadata message.
+3.  **Per-File Content Transfer**: For *each* file or directory:
+    *   The sender sends the actual file content (or the compressed tarball if it was a directory).
+    *   The receiver waits to receive the file content.
+
+Each of these steps involves establishing a connection through the magic-wormhole rendezvous server, generating keys, and confirming the connection. This overhead, repeated for the initial count and then twice for *each* file, contributes to the overall transfer time, especially for transfers involving many small files.
+
 ### Why not use fowl for multiple file transfers?
 
 A future improvement planned is to use [fowl](https://github.com/meejah/fowl), by the same author as magic-wormhole, to send multiple files through a single tunnel instead of requiring multiple codes. Currently, `wormrot.sh` sends each file individually with a unique code derived from the base time-synchronized code.
