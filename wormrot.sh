@@ -1,6 +1,6 @@
 #!/usr/bin/env zsh
 
-VERSION="1.2.0"
+VERSION="1.3.0"
 # Base timestamp calculated once at script start
 BASE_TIMESTAMP=$(date -u +%s)
 
