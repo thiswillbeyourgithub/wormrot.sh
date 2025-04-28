@@ -541,9 +541,35 @@ elif [[ $# -eq 0 ]]; then
             # Verification and extraction will happen after this block
         else
             # Receive regular file using the filename from JSON
-            echo "Receiving file directly to: '$FILENAME_FROM_JSON'"
+            local TARGET_FILENAME="$FILENAME_FROM_JSON"
+            local COUNTER=1
+            # Check if the target filename already exists
+            if [[ -e "$TARGET_FILENAME" ]]; then
+                echo "Warning: File '$TARGET_FILENAME' already exists."
+                # Separate filename and extension
+                local BASENAME="${TARGET_FILENAME%.*}"
+                local EXTENSION="${TARGET_FILENAME##*.}"
+                # Handle files with no extension or hidden files starting with '.'
+                if [[ "$BASENAME" == "$TARGET_FILENAME" || "$TARGET_FILENAME" == ".$EXTENSION" ]]; then
+                    BASENAME="$TARGET_FILENAME"
+                    EXTENSION=""
+                fi
+
+                # Find an available filename by appending _COUNTER
+                while [[ -e "$TARGET_FILENAME" ]]; do
+                    if [[ -n "$EXTENSION" ]]; then
+                        TARGET_FILENAME="${BASENAME}_${COUNTER}.${EXTENSION}"
+                    else
+                        TARGET_FILENAME="${BASENAME}_${COUNTER}"
+                    fi
+                    COUNTER=$((COUNTER + 1))
+                done
+                echo "Will save as '$TARGET_FILENAME' instead."
+            fi
+
             # Use execute_wormhole_command for receiving the file data with --output-file
-            RECEIVED_FILE_PATH="$FILENAME_FROM_JSON" # Store the final path
+            RECEIVED_FILE_PATH="$TARGET_FILENAME" # Store the final path (potentially modified)
+            echo "Receiving file data to: '$RECEIVED_FILE_PATH'"
             execute_wormhole_command "$WORMROT_BIN receive $WORMROT_DEFAULT_RECEIVE_ARGS --output-file \"$RECEIVED_FILE_PATH\" $DATA_MNEMONIC"
             local receive_file_exit_code=$?
 
