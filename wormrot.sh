@@ -319,7 +319,6 @@ elif [[ $# -eq 0 ]]; then
              echo "Error: Generated empty metadata mnemonic for item $CURRENT_INDEX" >&2
              exit 1
         fi
-        echo "The next metadata mnemonic will be: $META_MNEMONIC"
 
         # Display expected total if known
         local progress_indicator=""
@@ -427,7 +426,8 @@ elif [[ $# -eq 0 ]]; then
              echo "Error: Generated empty data mnemonic for item $CURRENT_INDEX" >&2
              exit 1
         fi
-        echo "The next data mnemonic will be: $DATA_MNEMONIC"
+        # Print the expected mnemonic *before* attempting to receive
+        echo "Expecting data mnemonic for item $CURRENT_INDEX: $DATA_MNEMONIC"
 
         echo "Receiving file data for item $CURRENT_INDEX/$EXPECTED_TOTAL..."
 
