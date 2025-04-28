@@ -263,6 +263,7 @@ elif [[ $# -gt 0 ]]; then
              echo "Error: Could not retrieve pre-generated metadata mnemonic for item $FILE_INDEX" >&2
              exit 1
         fi
+        echo "The next metadata mnemonic will be: $META_MNEMONIC"
 
         # Create metadata JSON including index and total count
         # Use the original item basename for the filename field
@@ -277,7 +278,6 @@ elif [[ $# -gt 0 ]]; then
         fi
 
         echo "Sending metadata for item $FILE_INDEX/$COUNT_FILES: $FILE_META_JSON"
-        echo "Using metadata mnemonic: $META_MNEMONIC"
 
         # Send metadata JSON - Use single quotes around the JSON for --text
         execute_wormhole_command "$WORMROT_BIN send --text '$FILE_META_JSON' $WORMROT_DEFAULT_SEND_ARGS --code $META_MNEMONIC"
@@ -288,10 +288,10 @@ elif [[ $# -gt 0 ]]; then
              echo "Error: Could not retrieve pre-generated data mnemonic for item $FILE_INDEX" >&2
              exit 1
         fi
+        echo "The next data mnemonic will be: $DATA_MNEMONIC"
 
         # Send the actual file/archive
         echo "Sending file data $FILE_INDEX/$COUNT_FILES: '$FILE_TO_SEND'"
-        echo "Using data mnemonic: $DATA_MNEMONIC"
         # Send the actual file or directory
         execute_wormhole_command "$WORMROT_BIN send \"$FILE_TO_SEND\" $WORMROT_DEFAULT_SEND_ARGS --code $DATA_MNEMONIC"
 
@@ -319,6 +319,7 @@ elif [[ $# -eq 0 ]]; then
              echo "Error: Generated empty metadata mnemonic for item $CURRENT_INDEX" >&2
              exit 1
         fi
+        echo "The next metadata mnemonic will be: $META_MNEMONIC"
 
         # Display expected total if known
         local progress_indicator=""
